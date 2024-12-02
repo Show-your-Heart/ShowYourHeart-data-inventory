@@ -1,0 +1,6 @@
+# Vars to use in lxc-create
+NAME="bi-show-your-heart"
+DISTRIBUTION="ubuntu"
+RELEASE="focal"
+ARCH="amd64"
+HOST="$NAME.local"

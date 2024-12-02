@@ -1,0 +1,10 @@
+[dev]
+bi-show-your-heart.local
+
+[production]
+bi-show-your-heart.coopdevs.org ansible_host=78.46.187.140
+
+
+[bi_servers:children]
+dev
+production

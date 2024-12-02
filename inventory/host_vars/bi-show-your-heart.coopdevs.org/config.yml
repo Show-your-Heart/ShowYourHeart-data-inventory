@@ -1,0 +1,81 @@
+---
+# System administrators
+system_administrators:
+  - name: adria
+    ssh_key: "{{ inventory_dir }}/../pub_keys/adria.pub"
+    state: present
+  - name: angels
+    ssh_key: "{{ inventory_dir }}/../pub_keys/angels.pub"
+    state: present
+  - name: cesar
+    ssh_key: "{{ inventory_dir }}/../pub_keys/cesar.pub"
+    state: present
+  - name: daniel
+    ssh_key: "{{ inventory_dir }}/../pub_keys/daniel.pub"
+    state: present
+  - name: kon
+    ssh_key: "{{ inventory_dir }}/../pub_keys/kon.pub"
+    state: present
+  - name: jordi
+    ssh_key: "{{ inventory_dir }}/../pub_keys/jordi.pub"
+    state: present
+  - name: lai
+    ssh_key: "{{ inventory_dir }}/../pub_keys/lai.pub"
+    state: present
+  - name: quim
+    ssh_key: "{{ inventory_dir }}/../pub_keys/quim.pub"
+    state: present
+
+
+development_environment: false
+certificate_authority_email: info@coopdevs.org
+certbot_force_update: false
+
+domains: ['bi-show-your-heart.coopdevs.org']
+
+bi_monitoring_enabled: true
+monitoring_enabled: true
+monitoring_nexporter_enabled: true
+monitoring_promtail_enabled: true
+monitoring_promtail_modules_enabled:
+  - "backups"
+
+
+monitoring_postgres_exporter_enabled: true
+monitoring_postgres_exporter_pg_user: bipgexporter
+
+
+node_exporter_basic_auth: !vault |
+  $ANSIBLE_VAULT;1.1;AES256
+  33643562396632323164336531353031636664643938303033666334396132383137373765643931
+  6461623466383039643136383933633239663534623961340a656430396466306335613130613933
+  36613161656166643839343464636262373834643637383138616633376364623531353134343935
+  3762623836663066360a303539303431366230313336633531643035643030663766613338633930
+  39643036346264663936653530333361613133326564353139616431363063666139
+postgres_exporter_basic_auth: !vault |
+  $ANSIBLE_VAULT;1.1;AES256
+  31336632613030643862353530393861613664313538633862633532343837383633313733316563
+  3765306535653261336163346161326334613835653462370a303535303636346338386566653231
+  63323465313837323161356562653965363138303831313361383565373263313763636630303432
+  3339353861303330650a393139356631383161613464613636316331306437663961626162306534
+  33363066366434303265353933333666376262353431353464356230643662353037
+user_exporter_basic_auth: !vault |
+  $ANSIBLE_VAULT;1.1;AES256
+  62643531366539316331323962626437633638303834633063653464346231303934643162333965
+  3764313330616433333063333262383834656436386530650a333535333561353735373330613034
+  64623762643965616430656434336334633633653830343536613061643331366262313033356663
+  3837613538346238310a326431323564323835326437313063663161386537363663623864386439
+  37643562633664353363323138326634326565373364376134663933613263336631
+bi_backups_enabled: true
+
+monitoring_backup_exporter_enabled: true
+
+bi_databases: []
+
+monitoring_loki_user: ""
+
+monitoring_loki_key: ""
+
+monitoring_loki_hostname: ""
+
+bi_biallinone_database: ""
