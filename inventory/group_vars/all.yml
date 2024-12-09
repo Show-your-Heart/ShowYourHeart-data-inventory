@@ -10,6 +10,8 @@ bi_fdw_url: https://github.com/EnterpriseDB/mysql_fdw.git
 bi_fdw_path: "/home/{{ bi_user }}/fdw"
 bi_postgresql_reader_user: reader
 bi_postgresql_dbt_user: dbt
+
+
 bi_dwh_database: dwh
 bi_dwh_database_extensions:
   - postgres_fdw
@@ -38,7 +40,7 @@ bi_docs_scripts_repo: https://git.coopdevs.org/coopdevs/bi/generador-documentaci
 
 bi_biallinone_port: 0
 
-superset_docker_version: 3.1.1-dev
+superset_docker_version: 3.1.1
 
 airflow_python_libraries:
   - dbt-postgres=={{bi_dbt_version}}

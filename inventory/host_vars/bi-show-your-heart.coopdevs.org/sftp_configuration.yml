@@ -9,10 +9,10 @@ sftp_users:
        35666534393936323238663331646362363733316161306563656331316430393066
      shell: True
      mode: '0755'
-     sftp_home_partition: '{{bi_fdw_csv_path}}/esberla'
+     sftp_home_partition: '{{bi_fdw_csv_path}}/syh'
      sftp_directories:
        - csv
-     sftp_start_directory: '{{bi_fdw_csv_path}}/esberla'
+     sftp_start_directory: '{{bi_fdw_csv_path}}/syh'
      append: True
 sftp_allow_passwords: True
 
