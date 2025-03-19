@@ -1,0 +1,12 @@
+# Enable firewall
+firewall_enabled: True
+
+firewall_allowed_tcp_ports:
+  - "22"  # for SSH
+  - "80"  # for HTTP. Nginx redirects it to 443
+  - "443" # for HTTPS.
+
+firewall_additional_rules:
+  - "iptables -A INPUT -p tcp --dport 5432 -s 172.0.0.0/8 -j ACCEPT"
+  - "iptables -A INPUT -p tcp --dport 5432 -s 192.0.0.0/8 -j ACCEPT"
+  - "iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE"
