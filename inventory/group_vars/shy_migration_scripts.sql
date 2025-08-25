@@ -2,6 +2,54 @@
 --------------------------
 -- START DELETES ---------
 --------------------------
+delete from external.mig_organizations_organization_methods
+where exists (select *
+	from external.corr_method l
+	where mig_organizations_organization_methods.method_id=l.uuid
+);
+
+delete from external.mig_methods_method_indicators
+where exists (select *
+	from external.corr_method l
+	where mig_methods_method_indicators.method_id=l.uuid
+);
+
+delete from external.mig_methods_campaign_methods
+where exists (select *
+	from external.corr_method l
+	where mig_methods_campaign_methods.method_id=l.uuid
+);
+
+
+delete from external.mig_methods_method_legal_structures
+where exists (select *
+	from external.corr_method l
+	where mig_methods_method_legal_structures.method_id=l.uuid
+);
+
+delete from external.mig_methods_list_items
+where exists (select *
+	from external.corr_listitem l
+	where mig_methods_list_items.listitem_id=l.uuid
+);
+
+delete from external.mig_methods_listitem
+where exists (
+    select *
+    from external.mig_users_user u
+    where mig_methods_listitem.created_by_id=u.id
+    and u.name='MIGRATION'
+);
+
+delete from external.mig_methods_list
+where exists (
+    select *
+    from external.mig_users_user u
+    where mig_methods_list.created_by_id=u.id
+    and u.name='MIGRATION'
+);
+
+
 delete
 from external.mig_methods_method
 where exists (
@@ -78,11 +126,11 @@ where exists (
 
 
 delete
-from external.corr_legalstructure
+from external.mig_settings_legalstructure
 where exists (
     select *
     from external.mig_users_user u
-    where corr_legalstructure.created_by_id=u.id
+    where mig_settings_legalstructure.created_by_id=u.id
     and u.name='MIGRATION'
 );
 
@@ -95,7 +143,6 @@ where exists (
     where mig_settings_sector.created_by_id=u.id
     and u.name='MIGRATION'
 );
-
 
 
 --TODO delete geodata
@@ -253,10 +300,23 @@ left join external.corr_legalstructure cp on q.id_parent=cp.id
 --------------------------
 
 
+
 drop table if exists external.corr_user;
 create table external.corr_user as
 select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
-from ec.user;
+, case
+	when u."EMAIL" is null or u."EMAIL"='' or u."EMAIL"='-'
+		then 'No email@'||uuid_in(md5(random()::text || random()::text)::cstring)||'.org'
+	when d."EMAIL" is not null and d.minid<>u."ID"
+		then u."ID"::varchar||'_'||u."EMAIL"
+	else u."EMAIL" end as email
+from ec.user u
+left join (
+	select "EMAIL", min("ID") as minid
+	from ec.user
+	group by "EMAIL"
+	having count(*)>1
+	) d on u."EMAIL"=d."EMAIL";
 
 insert into external.mig_users_user
 select 'migration'||"ID"::varchar as password
@@ -267,7 +327,7 @@ select 'migration'||"ID"::varchar as password
 , current_timestamp as updated_at
 , coalesce(left(u."NAME",50),'') as name
 , coalesce(left(u."SURNAME",50),'') as surname
-, coalesce(u."EMAIL",'no email ')||uuid_in(md5(random()::text || random()::text)::cstring)  as email
+, c.email as email
 , 0 as email_verification_code
 , false as email_verified
 , true as is_active
@@ -500,6 +560,7 @@ from t
 ;
 
 
+
 insert into external.mig_methods_indicator_topics
 with t as (
 select distinct ci.uuid as induuid, ct.uuid as topuuid
@@ -507,9 +568,12 @@ from ec.module_form_block_question q
 join ec.module_form_block fb on q.id_module_form_block = fb.id
 join  external.corr_topic ct on fb.id_form_block =ct.id
 join external.corr_indicator ci on q.id_question=ci.id
+join ec.questions qu on q.id_question=qu."ID"
+where  qu."QUESTION_KEY" not in ('q1204', 'q1203', 'q1201', 'q5302', 'q5306')
 )
 select -row_number()over(order by induuid, topuuid), induuid, topuuid
 from t;
+
 
 
 
@@ -557,3 +621,84 @@ left join (
 ) ti on ti."ID_MODULE"=m."ID"
 , (select id from external.mig_users_user where name='MIGRATION') us
 , (select id from external.mig_settings_network where name='Xarxa d''Economia Solidària') nt -- per defecte owner XES
+
+
+
+
+drop table if exists external.corr_list;
+create table external.corr_list as
+select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
+from ec.custom_list;
+
+insert into external.mig_methods_list
+select l.uuid, current_timestamp, current_timestamp, q.name, q.name, q.name, null, null, null, null, case when q.other_enabled =0 then false else true end, us.id
+from ec.custom_list q
+join external.corr_list l on q."ID"=l.id
+, (select id from external.mig_users_user where name='MIGRATION') us
+;
+
+
+
+drop table if exists external.corr_listitem;
+create table external.corr_listitem as
+select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
+from ec.custom_list_item;
+
+with t as (
+select *
+, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'  as ca
+	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "gl").text') #>> '{}' as gl
+	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}' as eu
+	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}' as es
+from ec.custom_list_item q
+)
+insert into external.mig_methods_listitem
+select l.uuid, current_timestamp, current_timestamp
+, coalesce(left(ca,50),left(es,50), left(eu,50), left(gl,50))
+, left(ca,50), left(ca,50), left(gl,50), left(eu,50), left(es,50), null
+, '' as formula, value, case when active='1' then true else false end as active
+, us.id
+from t q
+join external.corr_listitem l on q."ID"=l.id
+, (select id from external.mig_users_user where name='MIGRATION') us
+;
+
+
+insert into external.mig_methods_list_items
+select -row_number()over( order by li.uuid), l.uuid, li.uuid
+    from ec.custom_list_item q
+    join external.corr_listitem  li on q."ID" =li.id
+    join external.corr_list l on q.id_custom_list = l.id;
+
+insert into external.mig_methods_method_legal_structures
+select -row_number() over (order by m.id, l.id), m."uuid" , l."uuid"
+from ec.modules_legalforms ml
+join external.corr_method m on m.id =ml.id_module
+join external.corr_legalstructure l on l.id = ml.id_legalform ;
+
+
+insert into external.mig_methods_campaign_methods
+select -row_number() over (order by c.id, l.id), c."uuid" , l."uuid"
+from ec.modules m
+join external.corr_campaign c on m.id_campaign = c.id
+left join external.corr_method l on m."ID" = l.id ;
+
+
+
+insert into external.mig_methods_method_indicators
+select -row_number() over (order by c.id, l.id), l."uuid", c."uuid"
+from ec.modules_indicators m
+join external.corr_indicator c on m.id_indicator  = c.id
+join external.corr_method l on m.id_module = l.id
+join ec.questions q on q."ID"=c.id
+where q."QUESTION_KEY" not in ('q1204', 'q1203', 'q1201', 'q5302', 'q5306');
+
+
+insert into external.mig_organizations_organization_methods
+select  -row_number() over (order by o.id, l.id), o.uuid, l.uuid
+from ec.entity_module m
+join external.corr_organization o on m.id_entity = o.id
+join external.mig_organizations_organization mo on mo.id = o."uuid"
+join external.corr_method l on m.id_module = l.id
+join ec.questions q on q."ID"=l.id
+where q."QUESTION_KEY" not in ('q1204', 'q1203', 'q1201', 'q5302', 'q5306');
