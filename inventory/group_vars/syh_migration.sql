@@ -47,19 +47,49 @@ drop foreign table if exists external.mig_extra_settings_setting;	create FOREIGN
 	,"validator" varchar(255))SERVER postgres_fdw_syh_migration OPTIONS (schema_name 'public', table_name 'extra_settings_setting');
 drop foreign table if exists external.mig_geodata_autonomouscommunity;	create FOREIGN TABLE external.mig_geodata_autonomouscommunity("id" int8 NOT NULL
 	,"name" varchar(100) NOT NULL
+	,"name_en" varchar(100)
+	,"name_ca" varchar(100)
+	,"name_gl" varchar(100)
+	,"name_eu" varchar(100)
+	,"name_es" varchar(100)
+	,"name_nl" varchar(100)
 	,"country_id" int8 NOT NULL)SERVER postgres_fdw_syh_migration OPTIONS (schema_name 'public', table_name 'geodata_autonomouscommunity');
 drop foreign table if exists external.mig_geodata_city;	create FOREIGN TABLE external.mig_geodata_city("id" int8 NOT NULL
 	,"name" varchar(100) NOT NULL
+	,"name_en" varchar(100)
+	,"name_ca" varchar(100)
+	,"name_gl" varchar(100)
+	,"name_eu" varchar(100)
+	,"name_es" varchar(100)
+	,"name_nl" varchar(100)
 	,"province_id" int8
 	,"region_id" int8)SERVER postgres_fdw_syh_migration OPTIONS (schema_name 'public', table_name 'geodata_city');
 drop foreign table if exists external.mig_geodata_country;	create FOREIGN TABLE external.mig_geodata_country("id" int8 NOT NULL
-	,"name" varchar(100) NOT NULL)SERVER postgres_fdw_syh_migration OPTIONS (schema_name 'public', table_name 'geodata_country');
+	,"name" varchar(100) NOT NULL
+	,"name_en" varchar(100)
+	,"name_ca" varchar(100)
+	,"name_gl" varchar(100)
+	,"name_eu" varchar(100)
+	,"name_es" varchar(100)
+	,"name_nl" varchar(100))SERVER postgres_fdw_syh_migration OPTIONS (schema_name 'public', table_name 'geodata_country');
 drop foreign table if exists external.mig_geodata_province;	create FOREIGN TABLE external.mig_geodata_province("id" int8 NOT NULL
 	,"name" varchar(100) NOT NULL
+	,"name_en" varchar(100)
+	,"name_ca" varchar(100)
+	,"name_gl" varchar(100)
+	,"name_eu" varchar(100)
+	,"name_es" varchar(100)
+	,"name_nl" varchar(100)
 	,"community_id" int8
 	,"country_id" int8)SERVER postgres_fdw_syh_migration OPTIONS (schema_name 'public', table_name 'geodata_province');
 drop foreign table if exists external.mig_geodata_region;	create FOREIGN TABLE external.mig_geodata_region("id" int8 NOT NULL
 	,"name" varchar(100) NOT NULL
+	,"name_en" varchar(100)
+	,"name_ca" varchar(100)
+	,"name_gl" varchar(100)
+	,"name_eu" varchar(100)
+	,"name_es" varchar(100)
+	,"name_nl" varchar(100)
 	,"community_id" int8
 	,"province_id" int8)SERVER postgres_fdw_syh_migration OPTIONS (schema_name 'public', table_name 'geodata_region');
 drop foreign table if exists external.mig_geodata_zipcode;	create FOREIGN TABLE external.mig_geodata_zipcode("id" int8 NOT NULL
@@ -69,10 +99,16 @@ drop foreign table if exists external.mig_methods_campaign;	create FOREIGN TABLE
 	,"created_at" timestamptz NOT NULL
 	,"updated_at" timestamptz NOT NULL
 	,"name" varchar(400) NOT NULL
+	,"name_en" varchar(400)
+	,"name_ca" varchar(400)
+	,"name_gl" varchar(400)
+	,"name_eu" varchar(400)
+	,"name_es" varchar(400)
+	,"name_nl" varchar(400)
 	,"year" varchar(4) NOT NULL
 	,"status" bool NOT NULL
-	,"start_date" date NOT NULL
-	,"end_date" date NOT NULL
+	,"start_date" date
+	,"end_date" date
 	,"created_by_id" uuid
 	,"previous_campaign_id" uuid)SERVER postgres_fdw_syh_migration OPTIONS (schema_name 'public', table_name 'methods_campaign');
 drop foreign table if exists external.mig_methods_campaign_methods;	create FOREIGN TABLE external.mig_methods_campaign_methods("id" int4 NOT NULL
@@ -90,20 +126,20 @@ drop foreign table if exists external.mig_methods_indicator;	create FOREIGN TABL
 	,"updated_at" timestamptz NOT NULL
 	,"project_id" varchar(50) NOT NULL
 	,"version" varchar(4) NOT NULL
-	,"name" varchar(50) NOT NULL
-	,"name_en" varchar(50)
-	,"name_ca" varchar(50)
-	,"name_gl" varchar(50)
-	,"name_eu" varchar(50)
-	,"name_es" varchar(50)
-	,"name_nl" varchar(50)
-	,"description" varchar(400) NOT NULL
-	,"description_en" varchar(400)
-	,"description_ca" varchar(400)
-	,"description_gl" varchar(400)
-	,"description_eu" varchar(400)
-	,"description_es" varchar(400)
-	,"description_nl" varchar(400)
+	,"name" varchar(1000) NOT NULL
+	,"name_en" varchar(1000)
+	,"name_ca" varchar(1000)
+	,"name_gl" varchar(1000)
+	,"name_eu" varchar(1000)
+	,"name_es" varchar(1000)
+	,"name_nl" varchar(1000)
+	,"description" varchar(2500) NOT NULL
+	,"description_en" varchar(2500)
+	,"description_ca" varchar(2500)
+	,"description_gl" varchar(2500)
+	,"description_eu" varchar(2500)
+	,"description_es" varchar(2500)
+	,"description_nl" varchar(2500)
 	,"is_direct_indicator" bool NOT NULL
 	,"category" varchar NOT NULL
 	,"data_type" varchar NOT NULL
@@ -113,6 +149,12 @@ drop foreign table if exists external.mig_methods_indicator;	create FOREIGN TABL
 	,"formula" varchar(400) NOT NULL
 	,"validation" varchar(50) NOT NULL
 	,"message" varchar(400) NOT NULL
+	,"message_en" varchar(400)
+	,"message_ca" varchar(400)
+	,"message_gl" varchar(400)
+	,"message_eu" varchar(400)
+	,"message_es" varchar(400)
+	,"message_nl" varchar(400)
 	,"created_by_id" uuid
 	,"list_options_id" uuid)SERVER postgres_fdw_syh_migration OPTIONS (schema_name 'public', table_name 'methods_indicator');
 drop foreign table if exists external.mig_methods_indicator_topics;	create FOREIGN TABLE external.mig_methods_indicator_topics("id" int4 NOT NULL
@@ -121,8 +163,9 @@ drop foreign table if exists external.mig_methods_indicator_topics;	create FOREI
 drop foreign table if exists external.mig_methods_indicatorresult;	create FOREIGN TABLE external.mig_methods_indicatorresult("id" uuid NOT NULL
 	,"created_at" timestamptz NOT NULL
 	,"updated_at" timestamptz NOT NULL
-	,"value" varchar(200) NOT NULL
+	,"value" varchar NOT NULL
 	,"created_by_id" uuid
+	,"gender_id" uuid NOT NULL
 	,"indicator_id" uuid NOT NULL
 	,"survey_id" uuid NOT NULL)SERVER postgres_fdw_syh_migration OPTIONS (schema_name 'public', table_name 'methods_indicatorresult');
 drop foreign table if exists external.mig_methods_invitation;	create FOREIGN TABLE external.mig_methods_invitation("id" uuid NOT NULL
@@ -152,13 +195,13 @@ drop foreign table if exists external.mig_methods_list_items;	create FOREIGN TAB
 drop foreign table if exists external.mig_methods_listitem;	create FOREIGN TABLE external.mig_methods_listitem("id" uuid NOT NULL
 	,"created_at" timestamptz NOT NULL
 	,"updated_at" timestamptz NOT NULL
-	,"title" varchar(50) NOT NULL
-	,"title_en" varchar(50)
-	,"title_ca" varchar(50)
-	,"title_gl" varchar(50)
-	,"title_eu" varchar(50)
-	,"title_es" varchar(50)
-	,"title_nl" varchar(50)
+	,"title" varchar(300) NOT NULL
+	,"title_en" varchar(300)
+	,"title_ca" varchar(300)
+	,"title_gl" varchar(300)
+	,"title_eu" varchar(300)
+	,"title_es" varchar(300)
+	,"title_nl" varchar(300)
 	,"formula" varchar(50) NOT NULL
 	,"value" int2 NOT NULL
 	,"active" bool NOT NULL
@@ -167,20 +210,20 @@ drop foreign table if exists external.mig_methods_method;	create FOREIGN TABLE e
 	,"created_at" timestamptz NOT NULL
 	,"updated_at" timestamptz NOT NULL
 	,"active" bool NOT NULL
-	,"name" varchar(50) NOT NULL
-	,"name_en" varchar(50)
-	,"name_ca" varchar(50)
-	,"name_gl" varchar(50)
-	,"name_eu" varchar(50)
-	,"name_es" varchar(50)
-	,"name_nl" varchar(50)
-	,"description" varchar(400) NOT NULL
-	,"description_en" varchar(400)
-	,"description_ca" varchar(400)
-	,"description_gl" varchar(400)
-	,"description_eu" varchar(400)
-	,"description_es" varchar(400)
-	,"description_nl" varchar(400)
+	,"name" varchar(150) NOT NULL
+	,"name_en" varchar(150)
+	,"name_ca" varchar(150)
+	,"name_gl" varchar(150)
+	,"name_eu" varchar(150)
+	,"name_es" varchar(150)
+	,"name_nl" varchar(150)
+	,"description" varchar(1000) NOT NULL
+	,"description_en" varchar(1000)
+	,"description_ca" varchar(1000)
+	,"description_gl" varchar(1000)
+	,"description_eu" varchar(1000)
+	,"description_es" varchar(1000)
+	,"description_nl" varchar(1000)
 	,"unit_of_analysis" varchar(3) NOT NULL
 	,"documentation" varchar(100)
 	,"created_by_id" uuid
@@ -205,6 +248,7 @@ drop foreign table if exists external.mig_methods_survey;	create FOREIGN TABLE e
 	,"campaign_id" uuid NOT NULL
 	,"created_by_id" uuid
 	,"method_id" uuid NOT NULL
+	,"organization_id" uuid NOT NULL
 	,"user_id" uuid)SERVER postgres_fdw_syh_migration OPTIONS (schema_name 'public', table_name 'methods_survey');
 drop foreign table if exists external.mig_methods_topic;	create FOREIGN TABLE external.mig_methods_topic("id" uuid NOT NULL
 	,"created_at" timestamptz NOT NULL
@@ -228,16 +272,16 @@ drop foreign table if exists external.mig_methods_topic;	create FOREIGN TABLE ex
 drop foreign table if exists external.mig_organizations_organization;	create FOREIGN TABLE external.mig_organizations_organization("id" uuid NOT NULL
 	,"created_at" timestamptz NOT NULL
 	,"updated_at" timestamptz NOT NULL
-	,"name" varchar(50) NOT NULL
-	,"vat_number" varchar(20) NOT NULL
-	,"website" varchar(100) NOT NULL
-	,"country" varchar(50) NOT NULL
-	,"region" varchar(50) NOT NULL
-	,"city" varchar(50) NOT NULL
+	,"name" varchar(150) NOT NULL
+	,"vat_number" varchar(30) NOT NULL
+	,"website" varchar(300) NOT NULL
 	,"status" int2 NOT NULL
+	,"city_id" int8
 	,"contact_id" uuid NOT NULL
+	,"country_id" int8
 	,"created_by_id" uuid
-	,"legal_structure_id" uuid NOT NULL)SERVER postgres_fdw_syh_migration OPTIONS (schema_name 'public', table_name 'organizations_organization');
+	,"legal_structure_id" uuid NOT NULL
+	,"region_id" int8)SERVER postgres_fdw_syh_migration OPTIONS (schema_name 'public', table_name 'organizations_organization');
 drop foreign table if exists external.mig_organizations_organization_methods;	create FOREIGN TABLE external.mig_organizations_organization_methods("id" int4 NOT NULL
 	,"organization_id" uuid NOT NULL
 	,"method_id" uuid NOT NULL)SERVER postgres_fdw_syh_migration OPTIONS (schema_name 'public', table_name 'organizations_organization_methods');
@@ -285,7 +329,11 @@ drop foreign table if exists external.mig_post_office_log;	create FOREIGN TABLE 
 	,"exception_type" varchar(255) NOT NULL
 	,"message" text NOT NULL
 	,"email_id" int4 NOT NULL)SERVER postgres_fdw_syh_migration OPTIONS (schema_name 'public', table_name 'post_office_log');
-drop foreign table if exists external.mig_seq_view_geodata_country;	create FOREIGN TABLE external.mig_seq_view_geodata_country("seq" int8)SERVER postgres_fdw_syh_migration OPTIONS (schema_name 'public', table_name 'seq_view_geodata_country');
+drop foreign table if exists external.mig_settings_gender;	create FOREIGN TABLE external.mig_settings_gender("id" uuid NOT NULL
+	,"created_at" timestamptz NOT NULL
+	,"updated_at" timestamptz NOT NULL
+	,"name" varchar NOT NULL
+	,"created_by_id" uuid)SERVER postgres_fdw_syh_migration OPTIONS (schema_name 'public', table_name 'settings_gender');
 drop foreign table if exists external.mig_settings_legalstructure;	create FOREIGN TABLE external.mig_settings_legalstructure("id" uuid NOT NULL
 	,"created_at" timestamptz NOT NULL
 	,"updated_at" timestamptz NOT NULL
@@ -301,20 +349,20 @@ drop foreign table if exists external.mig_settings_legalstructure;	create FOREIG
 drop foreign table if exists external.mig_settings_network;	create FOREIGN TABLE external.mig_settings_network("id" uuid NOT NULL
 	,"created_at" timestamptz NOT NULL
 	,"updated_at" timestamptz NOT NULL
-	,"name" varchar(50) NOT NULL
+	,"name" varchar(100) NOT NULL
 	,"created_by_id" uuid
 	,"network_admin_id" uuid NOT NULL
 	,"parent_network_id" uuid)SERVER postgres_fdw_syh_migration OPTIONS (schema_name 'public', table_name 'settings_network');
 drop foreign table if exists external.mig_settings_sector;	create FOREIGN TABLE external.mig_settings_sector("id" uuid NOT NULL
 	,"created_at" timestamptz NOT NULL
 	,"updated_at" timestamptz NOT NULL
-	,"name" varchar(50) NOT NULL
-	,"name_en" varchar(50)
-	,"name_ca" varchar(50)
-	,"name_gl" varchar(50)
-	,"name_eu" varchar(50)
-	,"name_es" varchar(50)
-	,"name_nl" varchar(50)
+	,"name" varchar(150) NOT NULL
+	,"name_en" varchar(150)
+	,"name_ca" varchar(150)
+	,"name_gl" varchar(150)
+	,"name_eu" varchar(150)
+	,"name_es" varchar(150)
+	,"name_nl" varchar(150)
 	,"created_by_id" uuid)SERVER postgres_fdw_syh_migration OPTIONS (schema_name 'public', table_name 'settings_sector');
 drop foreign table if exists external.mig_users_user;	create FOREIGN TABLE external.mig_users_user("password" varchar(128) NOT NULL
 	,"last_login" timestamptz
@@ -322,8 +370,8 @@ drop foreign table if exists external.mig_users_user;	create FOREIGN TABLE exter
 	,"id" uuid NOT NULL
 	,"created_at" timestamptz NOT NULL
 	,"updated_at" timestamptz NOT NULL
-	,"name" varchar(50) NOT NULL
-	,"surnames" varchar(50) NOT NULL
+	,"name" varchar(100) NOT NULL
+	,"surnames" varchar(100) NOT NULL
 	,"email" varchar(255) NOT NULL
 	,"email_verification_code" varchar NOT NULL
 	,"email_verified" bool NOT NULL

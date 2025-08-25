@@ -2,6 +2,15 @@
 --------------------------
 -- START DELETES ---------
 --------------------------
+delete from external.mig_users_userprofile
+where exists (
+    select *
+    from external.mig_users_user u
+    where mig_users_userprofile.created_by_id=u.id
+    and u.name='MIGRATION'
+);
+
+
 delete from external.mig_organizations_organization_methods
 where exists (select *
 	from external.corr_method l
@@ -25,28 +34,6 @@ delete from external.mig_methods_method_legal_structures
 where exists (select *
 	from external.corr_method l
 	where mig_methods_method_legal_structures.method_id=l.uuid
-);
-
-delete from external.mig_methods_list_items
-where exists (select *
-	from external.corr_listitem l
-	where mig_methods_list_items.listitem_id=l.uuid
-);
-
-delete from external.mig_methods_listitem
-where exists (
-    select *
-    from external.mig_users_user u
-    where mig_methods_listitem.created_by_id=u.id
-    and u.name='MIGRATION'
-);
-
-delete from external.mig_methods_list
-where exists (
-    select *
-    from external.mig_users_user u
-    where mig_methods_list.created_by_id=u.id
-    and u.name='MIGRATION'
 );
 
 
@@ -74,6 +61,30 @@ where exists (
     select *
     from external.mig_users_user u
     where mig_methods_indicator.created_by_id=u.id
+    and u.name='MIGRATION'
+);
+
+
+
+delete from external.mig_methods_list_items
+where exists (select *
+	from external.corr_listitem l
+	where mig_methods_list_items.listitem_id=l.uuid
+);
+
+delete from external.mig_methods_listitem
+where exists (
+    select *
+    from external.mig_users_user u
+    where mig_methods_listitem.created_by_id=u.id
+    and u.name='MIGRATION'
+);
+
+delete from external.mig_methods_list
+where exists (
+    select *
+    from external.mig_users_user u
+    where mig_methods_list.created_by_id=u.id
     and u.name='MIGRATION'
 );
 
@@ -179,10 +190,20 @@ where not exists (
 --------------------------
 
 insert into external.mig_geodata_country
-select seq,'Espanya' from external.mig_seq_view_geodata_country;
+select -1,'Espanya' , 'Spain', 'Espanya', 'España', 'Espainia', 'España', 'Spain';
+
+
 
 insert into external.mig_geodata_autonomouscommunity
-select external.mig_seq_view_geodata_autonomouscommunity_nextval(), jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}' , c.id
+select -"ID"
+, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'
+, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'
+, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'
+, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "gl").text') #>> '{}'
+, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}'
+, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}'
+, null
+, c.id
 from ec.autonomous_community q
 , external.mig_geodata_country c
 where c.name='Espanya';
@@ -191,39 +212,50 @@ where c.name='Espanya';
 with tb as (
 select jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}' as prov
 , jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}' as prov_es
+, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "gl").text') #>> '{}' as prov_gl
+, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}' as prov_eu
 , jsonb_path_query(c.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}' as ccaa
+, q."ID"
 from ec.provinces q
 join ec.autonomous_community c on q.id_autonomous_community = c."ID"
 )
 insert into external.mig_geodata_province
-select external.mig_seq_view_geodata_province_nextval(),coalesce(prov, prov_es), mc.id, null
+select -tb."ID",coalesce(prov, prov_es), prov, prov, prov_gl, prov_eu, prov_es, null, mc.id, -1
 from tb
 join external.mig_geodata_autonomouscommunity mc on  ccaa=mc.name;
 
 
+
 with tb as (
 select jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}' as reg
+, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "gl").text') #>> '{}' as reg_gl
+, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}' as reg_eu
+, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}' as reg_es
 , jsonb_path_query(c.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}' as prov
+, q."ID"
 from ec.regions q
 join ec.provinces c on q.id_province=c."ID"
 )
 insert into external.mig_geodata_region
-select external.mig_seq_view_geodata_region_nextval(),reg, null, mc.id
+select -tb."ID"
+,reg, reg, reg, reg_gl, reg_eu, reg_es, null
+, null, mc.id
 from tb
-join external.mig_geodata_province mc on  prov=mc.name
-
-
+join external.mig_geodata_province mc on  prov=mc.name;
 
 
 create table external.mig_towns as
 select jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}' as town
+, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}' as town_es
+, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "gl").text') #>> '{}' as town_gl
+, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}' as town_eu
 , jsonb_path_query(p.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}' as prov
 , jsonb_path_query(p.name::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}' as prov_es
 , jsonb_path_query(r.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}' as region
+, q."ID"
 from ec.towns q
 	left join ec.provinces p on q.id_province=p."ID"
 	left join ec.regions r on q.id_region=r."ID";
-
 
 with tb as (
 select distinct * from external.mig_towns
@@ -231,10 +263,12 @@ select distinct * from external.mig_towns
 insert into external.mig_geodata_city
 select
 -row_number() over(order by town, mc.id, mr.id),
-town, mc.id, mr.id
+town, town, town, town_gl, town_eu, town_es, null
+, mc.id, mr.id
 from tb
 left join external.mig_geodata_province mc on  coalesce(prov,prov_es)=mc.name
 left join external.mig_geodata_region mr on region=mr.name;
+
 
 drop table external.mig_towns;
 
@@ -265,7 +299,7 @@ join external.corr_sector c on q."ID"=c.id
 )
 insert into external.mig_settings_sector
 select uuid, current_timestamp, current_timestamp
-,left(ca,50)as name, left(ca,50) as en, left(ca,50), left(gl,50), left(eu,50), left(es,50)
+,ca as name, ca as en, ca, gl, eu, es
 , null
 , us.id
 from t
@@ -299,8 +333,6 @@ left join external.corr_legalstructure cp on q.id_parent=cp.id
 -- END SETTINGS ----------
 --------------------------
 
-
-
 drop table if exists external.corr_user;
 create table external.corr_user as
 select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
@@ -325,8 +357,8 @@ select 'migration'||"ID"::varchar as password
 , c.uuid as id
 , current_timestamp as created_at
 , current_timestamp as updated_at
-, coalesce(left(u."NAME",50),'') as name
-, coalesce(left(u."SURNAME",50),'') as surname
+, coalesce(u."NAME",'') as name
+, coalesce(u."SURNAME",'') as surname
 , c.email as email
 , 0 as email_verification_code
 , false as email_verified
@@ -339,7 +371,6 @@ join external.corr_user c on u."ID"=c.id
 
 
 
-
 drop table if exists external.corr_network;
 create table external.corr_network as
 select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
@@ -349,7 +380,7 @@ insert into external.mig_settings_network
 select c.uuid as id
 , current_timestamp as created_at
 , current_timestamp as updated_at
-, left(m.name,50)
+, m.name
 , us.id as created_by_id
 , cu.uuid
 , null as parent_network_id
@@ -359,61 +390,34 @@ join external.corr_user cu on m.id_user=cu.id
 , (select id from external.mig_users_user where name='MIGRATION') us;
 
 
-
-
---insert into external.mig_organizations_organization
---select uuid_in(md5(random()::text || random()::text)::cstring) as id
---, current_timestamp as created_at
---, current_timestamp as updated_at
---, e.entity_name as name
---, e.entity_nif as vat_number
---, e.entity_web
---, gc.id as country
---, gr.id as region
---, gci.id as city
---, case id_status when 1 then 0 when 4 then 1 when 3 then 2 end as status
---, muu.id as contact_id
---, us.id as created_by_id
---, ls.id as legal_structure_id
---from external.entities e
---left join external.mig_geodata_region gr on e.entity_comarca=gr.name
---left join external.mig_geodata_city gci on e.entity_town=gci.name
---left join external.mig_settings_legalstructure ls on ls.name=e.entity_legal_form
---left join external.mig_users_user muu on muu.password= 'migration'||e.entity_id_user::varchar
---, external.mig_geodata_country gc
---, (select id from external.mig_users_user where name='MIGRATION') us
---where gc.name='Espanya'
---and e.id_status in (1,3,4);
-
-
 drop table if exists external.corr_organization;
 create table external.corr_organization as
 select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
 from ec.entities;
 
---TODO fer la join per city per població i província
 insert into external.mig_organizations_organization
 select c.uuid as id
 , current_timestamp as created_at
 , current_timestamp as updated_at
-, left(e.name,50) as name
-, left(e."NIF",20) as vat_number
-, left(e."WEB",100)
-, 'N/A' --, gc.id as country
-, 'N/A' --, gr.id as region
-, 'N/A' --, gci.id as city
-, case id_bs_state when 1 then 0 when 4 then 1 when 3 then 2 end as status
+, e.name as name
+, e."NIF" as vat_number
+, e."WEB"
+, case id_bs_state when 1 then 0 when 4 then 1 when 3 then 2 when 2 then 3 end as status
+, cy.id as town
 , cu.uuid as contact_id
+, gc.id as country
 , us.id as created_by_id
 , ls.uuid as legal_structure_id
+, cy.region_id as region
 from ec.entities e
 join external.corr_organization c on e."ID"=c.id
 join external.corr_legalstructure ls on ls.id=e.id_legal_form  --hi ha casos que no hi son
-left join external.corr_user cu on cu.id= e.id_user
+join external.corr_user cu on cu.id= e.id_user --hi ha casos que no hi son
+left join  external.mig_geodata_city cy on -e.id_town=cy.id
 , external.mig_geodata_country gc
 , (select id from external.mig_users_user where name='MIGRATION') us
 where gc.name='Espanya'
-and e.id_bs_state in (1,3,4);
+and e.id_bs_state in (1,2,3,4);
 
 
 
@@ -426,6 +430,12 @@ from ec.campaigns;
 insert into external.mig_methods_campaign
 select q.uuid , current_timestamp, current_timestamp
 , jsonb_path_query(c.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'
+, jsonb_path_query(c.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'
+, jsonb_path_query(c.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'
+, jsonb_path_query(c.name::jsonb, '$.texts[*] ? (@.la == "gl").text') #>> '{}'
+, jsonb_path_query(c.name::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}'
+, jsonb_path_query(c.name::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}'
+, null
 , year
 , case when "ACTIVE"=1 then true else false end as status
 , case when start_date<>'0000-00-00' then start_date::date else '9999-12-31' end
@@ -471,18 +481,56 @@ from t
 ;
 
 
+drop table if exists external.corr_list;
+create table external.corr_list as
+select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
+from ec.custom_list;
+
+insert into external.mig_methods_list
+select l.uuid, current_timestamp, current_timestamp, q.name, q.name, q.name, null, null, null, null, case when q.other_enabled =0 then false else true end, us.id
+from ec.custom_list q
+join external.corr_list l on q."ID"=l.id
+, (select id from external.mig_users_user where name='MIGRATION') us
+;
+
+
+
+drop table if exists external.corr_listitem;
+create table external.corr_listitem as
+select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
+from ec.custom_list_item;
+
+with t as (
+select *
+, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'  as ca
+	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "gl").text') #>> '{}' as gl
+	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}' as eu
+	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}' as es
+from ec.custom_list_item q
+)
+insert into external.mig_methods_listitem
+select l.uuid, current_timestamp, current_timestamp
+, coalesce(ca,es, eu, gl)
+, ca, ca, gl, eu, es, null
+, '' as formula, value, case when active='1' then true else false end as active
+, us.id
+from t q
+join external.corr_listitem l on q."ID"=l.id
+, (select id from external.mig_users_user where name='MIGRATION') us
+;
+
+insert into external.mig_methods_list_items
+select -row_number()over( order by li.uuid), l.uuid, li.uuid
+    from ec.custom_list_item q
+    join external.corr_listitem  li on q."ID" =li.id
+    join external.corr_list l on q.id_custom_list = l.id;
+
+
 
 drop table if exists external.corr_indicator;
 create table external.corr_indicator as
 select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
 from ec.questions;
-
-
--- Message multiidioma
--- revisar units
--- revisar longituds name + description
--- names/description a null
--- alguns donen problemes
 
 with
 qt as (
@@ -502,15 +550,19 @@ select *
 	, jsonb_path_query(q.descr::jsonb, '$.texts[*] ? (@.la == "gl").text') #>> '{}' as dgl
 	, jsonb_path_query(q.descr::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}' as deu
 	, jsonb_path_query(q.descr::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}' as des
+	, jsonb_path_query(q.validation_message::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'  as vca
+	, jsonb_path_query(q.validation_message::jsonb, '$.texts[*] ? (@.la == "gl").text') #>> '{}' as vgl
+	, jsonb_path_query(q.validation_message::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}' as veu
+	, jsonb_path_query(q.validation_message::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}' as ves
 	from qt q
 )
 insert into external.mig_methods_indicator
 select q.uuid, current_timestamp, current_timestamp,
 "QUESTION_KEY", t.version
-, coalesce(case when left(ca,50)='' then left(es,50) else left(ca,50) end, left(gl,50), left(eu,50), left(es,50),'ND')
-, case when left(ca,50)='' then left(es,50) else left(ca,50) end, left(ca,50), left(gl,50), left(eu,50), left(es,50), null
-, coalesce(left(dca,400), left(dgl,400), left(deu,400), left(des,400), 'ND')
-, left(dca,400), left(dca,400), left(dgl,400), left(deu,400), left(des,400),null
+, coalesce(case when ca='' then es else ca end, gl, eu, es,'ND')
+, case when ca='' then es else ca end, ca, gl, eu, es, null
+, coalesce(dca, dgl, deu, des, 'ND')
+, dca, dca, dgl, deu, des,null
 , true
 , 'SC' as category -- TODO
 , case "QUESTIONTYPE"
@@ -551,16 +603,97 @@ select q.uuid, current_timestamp, current_timestamp,
 end
 , '' as condition, '' as formula
 , left(coalesce(t."VALIDATION", ''), 50)
-, '' as message
+, coalesce(t.vca, t.ves, t.veu, t.vgl, ''), t.vca, t.vca, t.vgl, t.veu, t.ves, null
 ,  us.id
-, null list_options_id
+, cl.uuid list_options_id
 from t
 	join external.corr_indicator q on t."ID" = q.id
+	left join (
+        select id_question, max(id_custom_list) as id_custom_list
+        from ec.question_custom_list l
+        group by id_question
+	) li on t."ID"=li.id_question
+	left join external.corr_list cl on li.id_custom_list = cl.id
 	, (select id from external.mig_users_user where name='MIGRATION') us
 ;
 
 
+drop table if exists external.corr_indicator_indirect;
+create table external.corr_indicator_indirect as
+select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
+from ec.indicators;
 
+
+with t as (
+	select *
+	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'  as ca
+		, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "gl").text') #>> '{}' as gl
+		, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}' as eu
+		, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}' as es
+		, jsonb_path_query(q.description::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'  as dca
+		, jsonb_path_query(q.description::jsonb, '$.texts[*] ? (@.la == "gl").text') #>> '{}' as dgl
+		, jsonb_path_query(q.description::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}' as deu
+		, jsonb_path_query(q.description::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}' as des
+	from ec.indicators q
+)
+insert into external.mig_methods_indicator
+select i.uuid, current_timestamp, current_timestamp
+, t."INDICATOR_KEY"
+, t.version
+, coalesce(ca, es, gl, eu), ca, ca, gl, eu, es, null
+, coalesce(dca, des, dgl, deu), dca, dca, dgl, deu, des, null
+, false
+, 'SC' --TODO
+, case value_type
+	when '' then 'S'
+	when 'Boolean' then 'B'
+	when 'Check' then 'CH'
+	when 'Combo' then 'DR'
+	when 'Date' then 'D'
+	when 'Decimal' then 'DC'
+	when 'Gender' then 'I'
+	when 'GenderDecimal' then 'DC'
+	when 'Literal' then 'T'
+	when 'Number' then 'DC'
+	when 'PercentageGroup' then 'DC'
+	when 'Radio' then 'R'
+	when 'Range' then 'R'
+	when 'Sector' then 'DR'
+	when 'SingleText' then 'S'
+	when 'Text' then 'T'
+	else 'S'
+	end
+, '' as sub_data_type -- TODO
+, case "UNIT"
+	when '' then 'C'
+	when 'Boolean' then 'C'
+	when 'DinA4' then 'C'
+	when 'Euro' then 'DL'
+	when 'Hores' then 'C'
+	when 'KgAny' then 'C'
+	when 'Kwh' then 'E'
+	when 'Litres' then 'C'
+	when 'M3' then 'C'
+	when 'Nombre' then 'C'
+	when 'Percentage' then 'C'
+	when 'Persones' then 'C'
+	when 'Tones' then 'K'
+	else 'C'
+end
+,'' as condition
+, t."FORMULA"
+, '' as validation
+, '' as message, null , null , null , null , null
+, us.id
+, null
+from t
+	join external.corr_indicator_indirect i on t."ID" = i.id
+	, (select id from external.mig_users_user where name='MIGRATION') us
+where t."FORMULA" is not null;
+
+
+
+-- De momento solo para los directos
 insert into external.mig_methods_indicator_topics
 with t as (
 select distinct ci.uuid as induuid, ct.uuid as topuuid
@@ -573,7 +706,6 @@ where  qu."QUESTION_KEY" not in ('q1204', 'q1203', 'q1201', 'q5302', 'q5306')
 )
 select -row_number()over(order by induuid, topuuid), induuid, topuuid
 from t;
-
 
 
 
@@ -598,8 +730,8 @@ with modules as (
 )
 insert into external.mig_methods_method
 select c.uuid, current_timestamp, current_timestamp, case when "ACTIVE"=1 then true else false end
-, left(ca,50), left(ca,50), left(ca,50), left(gl,50), left(eu,50), left(es,50), null
-, coalesce(left(dca,400),left(dgl,400), left(deu,400), left(des,400),'ND'), left(dca,400), left(dca,400), left(dgl,400), left(deu,400), left(des,400), null
+, ca, ca, ca, gl, eu, es, null
+, coalesce(dca,dgl, deu, des,'ND'), dca, dca, dgl, deu, des, null
 , coalesce(type, 'ORG') as unit_of_analysis --TODO
 , '' as documentation --TODO
 , us.id
@@ -621,54 +753,9 @@ left join (
 ) ti on ti."ID_MODULE"=m."ID"
 , (select id from external.mig_users_user where name='MIGRATION') us
 , (select id from external.mig_settings_network where name='Xarxa d''Economia Solidària') nt -- per defecte owner XES
-
-
-
-
-drop table if exists external.corr_list;
-create table external.corr_list as
-select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
-from ec.custom_list;
-
-insert into external.mig_methods_list
-select l.uuid, current_timestamp, current_timestamp, q.name, q.name, q.name, null, null, null, null, case when q.other_enabled =0 then false else true end, us.id
-from ec.custom_list q
-join external.corr_list l on q."ID"=l.id
-, (select id from external.mig_users_user where name='MIGRATION') us
 ;
 
 
-
-drop table if exists external.corr_listitem;
-create table external.corr_listitem as
-select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
-from ec.custom_list_item;
-
-with t as (
-select *
-, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'  as ca
-	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "gl").text') #>> '{}' as gl
-	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}' as eu
-	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}' as es
-from ec.custom_list_item q
-)
-insert into external.mig_methods_listitem
-select l.uuid, current_timestamp, current_timestamp
-, coalesce(left(ca,50),left(es,50), left(eu,50), left(gl,50))
-, left(ca,50), left(ca,50), left(gl,50), left(eu,50), left(es,50), null
-, '' as formula, value, case when active='1' then true else false end as active
-, us.id
-from t q
-join external.corr_listitem l on q."ID"=l.id
-, (select id from external.mig_users_user where name='MIGRATION') us
-;
-
-
-insert into external.mig_methods_list_items
-select -row_number()over( order by li.uuid), l.uuid, li.uuid
-    from ec.custom_list_item q
-    join external.corr_listitem  li on q."ID" =li.id
-    join external.corr_list l on q.id_custom_list = l.id;
 
 insert into external.mig_methods_method_legal_structures
 select -row_number() over (order by m.id, l.id), m."uuid" , l."uuid"
@@ -702,3 +789,20 @@ join external.mig_organizations_organization mo on mo.id = o."uuid"
 join external.corr_method l on m.id_module = l.id
 join ec.questions q on q."ID"=l.id
 where q."QUESTION_KEY" not in ('q1204', 'q1203', 'q1201', 'q5302', 'q5306');
+
+
+with ent as (
+	select u."ID", left(coalesce(max(u.phone),''),20) as phone
+	, max(e."ID" ) as id_entity, max(id_legal_form) as id_legal_form
+	from ec.user u
+	join ec.entities e on e.id_user = u."ID"
+	join external.corr_legalstructure ls on ls.id=e.id_legal_form  --hi ha casos que no hi son
+	where e.id_bs_state in (1,2,3,4)
+	group by u."ID"
+)
+insert into external.mig_users_userprofile
+select c.uuid, current_timestamp, current_timestamp, phone , us.id, o.uuid, c.uuid
+from ent e
+join external.corr_user c on e."ID"=c.id
+left join external.corr_organization o on e.id_entity=o.id
+, (select id from external.mig_users_user where name='MIGRATION') us;
