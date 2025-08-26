@@ -2,6 +2,14 @@
 --------------------------
 -- START DELETES ---------
 --------------------------
+delete from external.mig_settings_gender
+where exists (
+    select *
+    from external.mig_users_user u
+    where mig_settings_gender.created_by_id=u.id
+    and u.name='MIGRATION'
+);
+
 delete from external.mig_users_userprofile
 where exists (
     select *
@@ -806,3 +814,60 @@ from ent e
 join external.corr_user c on e."ID"=c.id
 left join external.corr_organization o on e.id_entity=o.id
 , (select id from external.mig_users_user where name='MIGRATION') us;
+
+
+
+insert into external.mig_settings_gender
+select uuid_in(md5(random()::text || random()::text)::cstring), current_timestamp, current_timestamp, 'D', u.id
+from external.mig_users_user u where name='MIGRATION'
+union all
+select uuid_in(md5(random()::text || random()::text)::cstring), current_timestamp, current_timestamp, 'H', u.id
+from external.mig_users_user u where name='MIGRATION'
+union all
+select uuid_in(md5(random()::text || random()::text)::cstring), current_timestamp, current_timestamp, 'NB', u.id
+from external.mig_users_user u where name='MIGRATION';
+
+
+--------------
+
+
+
+drop table if exists external.mig_answer_question_campaign_module;
+create table external.mig_answer_question_campaign_module as
+select a."ID" as id_answer
+, q.id_campaign
+, a.id_question
+, a.id_entity
+, e.id_user
+, m."ID" as id_module
+from ec.questions q
+join ec.answers a on a.id_question = q."ID"
+join ec.entities e on a.id_entity=e."ID"
+join ec.module_form_block_question mf on mf.id_question=q."ID"
+join ec.module_form_block mfb on mf.id_module_form_block=mfb."id"
+join ec.modules m on mfb.id_module=m."ID"
+join ec.entity_module em on em.id_module = m."ID" and em.id_entity =  a.id_entity
+where
+ q.id_campaign is not null and e.id_bs_state in (1,2,3,4);;
+
+
+drop table if exists external.corr_survey;
+create table external.corr_survey as
+with a as (
+select distinct id_campaign, id_module, id_entity, id_user
+from  external.mig_answer_question_campaign_module
+)
+select uuid_in(md5(random()::text || random()::text)::cstring) as uuid, *
+from a;
+
+insert into external.mig_methods_survey
+select m.uuid, current_timestamp, current_timestamp, '' as token, 0 as status, cc.uuid
+, us.id, cm.uuid, co.uuid, cu.uuid
+from external.corr_survey m
+join external.corr_method cm on m.id_module=cm.id
+join external.corr_organization co on m.id_entity=co.id
+join external.mig_organizations_organization o on co.uuid=o.id
+join external.corr_user cu on m.id_user=cu.id
+join external.corr_campaign cc on m.id_campaign=cc.id
+, (select id from external.mig_users_user where name='MIGRATION') us
+where e.id_bs_state in (1,2,3,4);
