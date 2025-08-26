@@ -2,6 +2,14 @@
 --------------------------
 -- START DELETES ---------
 --------------------------
+delete from external.mig_methods_survey
+where exists (
+    select *
+    from external.mig_users_user u
+    where mig_methods_survey.created_by_id=u.id
+    and u.name='MIGRATION'
+);
+
 delete from external.mig_settings_gender
 where exists (
     select *
@@ -285,9 +293,9 @@ drop table external.mig_towns;
 --------------------------
 
 
---------------------------
--- START SETTINGS --------
---------------------------
+---------------------------------
+-- START SETTINGS_SECTOR --------
+---------------------------------
 
 drop table if exists external.corr_sector;
 create table external.corr_sector as
@@ -313,6 +321,14 @@ select uuid, current_timestamp, current_timestamp
 from t
 , (select id from external.mig_users_user where name='MIGRATION') us;
 
+---------------------------------
+-- END SETTINGS_SECTOR ----------
+---------------------------------
+
+
+------------------------------------------
+-- START SETTINGS_LEGALSTRUCTURE ---------
+------------------------------------------
 
 
 drop table if exists external.corr_legalstructure;
@@ -337,9 +353,14 @@ left join external.corr_legalstructure cp on q.id_parent=cp.id
 , (select id from external.mig_users_user where name='MIGRATION') us;
 
 
---------------------------
--- END SETTINGS ----------
---------------------------
+------------------------------------------
+-- END SETTINGS_LEGALSTRUCTURE -----------
+------------------------------------------
+
+
+-----------------------------
+-- START USERS_USER ---------
+-----------------------------
 
 drop table if exists external.corr_user;
 create table external.corr_user as
@@ -377,7 +398,13 @@ from ec.user u
 join external.corr_user c on u."ID"=c.id
 , (select id from external.mig_users_user where name='MIGRATION') us;
 
+---------------------------
+-- END USERS_USER ---------
+---------------------------
 
+-----------------------------------
+-- START SETTINGS_NETWORK ---------
+-----------------------------------
 
 drop table if exists external.corr_network;
 create table external.corr_network as
@@ -397,6 +424,15 @@ join external.corr_network c on m."ID"=c.id
 join external.corr_user cu on m.id_user=cu.id
 , (select id from external.mig_users_user where name='MIGRATION') us;
 
+
+---------------------------------
+-- END SETTINGS_NETWORK ---------
+---------------------------------
+
+
+---------------------------------------------
+-- START ORGANIZATIONS_ORGANIZATION ---------
+---------------------------------------------
 
 drop table if exists external.corr_organization;
 create table external.corr_organization as
@@ -428,7 +464,14 @@ where gc.name='Espanya'
 and e.id_bs_state in (1,2,3,4);
 
 
+-------------------------------------------
+-- END ORGANIZATIONS_ORGANIZATION ---------
+-------------------------------------------
 
+
+-----------------------------------
+-- START METHODS_CAMPAIGN ---------
+-----------------------------------
 
 drop table if exists external.corr_campaign;
 create table external.corr_campaign as
@@ -456,7 +499,13 @@ left join external.corr_campaign qp on c.id_previous_campaign=qp.id
 , (select id from external.mig_users_user where name='MIGRATION') us
 ;
 
+---------------------------------
+-- END METHODS_CAMPAIGN ---------
+---------------------------------
 
+--------------------------------
+-- START METHODS_TOPIC ---------
+--------------------------------
 drop table if exists external.corr_topic;
 create table external.corr_topic as
 select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
@@ -488,6 +537,13 @@ from t
 	, (select id from external.mig_users_user where name='MIGRATION') us
 ;
 
+------------------------------
+-- END METHODS_TOPIC ---------
+------------------------------
+
+-------------------------------
+-- START METHODS_LIST ---------
+-------------------------------
 
 drop table if exists external.corr_list;
 create table external.corr_list as
@@ -501,7 +557,13 @@ join external.corr_list l on q."ID"=l.id
 , (select id from external.mig_users_user where name='MIGRATION') us
 ;
 
+-----------------------------
+-- END METHODS_LIST ---------
+-----------------------------
 
+-------------------------------
+-- START METHODS_LISTITEM -----
+-------------------------------
 
 drop table if exists external.corr_listitem;
 create table external.corr_listitem as
@@ -527,14 +589,28 @@ join external.corr_listitem l on q."ID"=l.id
 , (select id from external.mig_users_user where name='MIGRATION') us
 ;
 
+-----------------------------
+-- END METHODS_LISTITEM -----
+-----------------------------
+
+---------------------------------
+-- START METHODS_LIST_ITEMS -----
+---------------------------------
+
 insert into external.mig_methods_list_items
 select -row_number()over( order by li.uuid), l.uuid, li.uuid
     from ec.custom_list_item q
     join external.corr_listitem  li on q."ID" =li.id
     join external.corr_list l on q.id_custom_list = l.id;
 
+---------------------------------
+-- END METHODS_LIST_ITEMS -----
+---------------------------------
 
 
+---------------------------------
+-- START METHODS_INDICATOR ------
+---------------------------------
 drop table if exists external.corr_indicator;
 create table external.corr_indicator as
 select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
@@ -700,6 +776,13 @@ from t
 where t."FORMULA" is not null;
 
 
+-------------------------------
+-- END METHODS_INDICATOR ------
+-------------------------------
+
+----------------------------------------
+-- START METHODS_INDICATOR_TOPICS ------
+----------------------------------------
 
 -- De momento solo para los directos
 insert into external.mig_methods_indicator_topics
@@ -716,7 +799,13 @@ select -row_number()over(order by induuid, topuuid), induuid, topuuid
 from t;
 
 
+--------------------------------------
+-- END METHODS_INDICATOR_TOPICS ------
+--------------------------------------
 
+------------------------------
+-- START METHODS_METHOD ------
+------------------------------
 
 drop table if exists external.corr_method;
 create table external.corr_method as
@@ -763,6 +852,14 @@ left join (
 , (select id from external.mig_settings_network where name='Xarxa d''Economia Solidària') nt -- per defecte owner XES
 ;
 
+----------------------------
+-- END METHODS_METHOD ------
+----------------------------
+
+
+----------------------------------------
+-- START METHODS_LEGAL_STRUCTURES ------
+----------------------------------------
 
 
 insert into external.mig_methods_method_legal_structures
@@ -770,7 +867,14 @@ select -row_number() over (order by m.id, l.id), m."uuid" , l."uuid"
 from ec.modules_legalforms ml
 join external.corr_method m on m.id =ml.id_module
 join external.corr_legalstructure l on l.id = ml.id_legalform ;
+--------------------------------------
+-- END METHODS_LEGAL_STRUCTURES ------
+--------------------------------------
 
+
+----------------------------------------
+-- START METHODS_CAMPAIGH_METHODS ------
+----------------------------------------
 
 insert into external.mig_methods_campaign_methods
 select -row_number() over (order by c.id, l.id), c."uuid" , l."uuid"
@@ -778,7 +882,13 @@ from ec.modules m
 join external.corr_campaign c on m.id_campaign = c.id
 left join external.corr_method l on m."ID" = l.id ;
 
+--------------------------------------
+-- END METHODS_CAMPAIGH_METHODS ------
+--------------------------------------
 
+----------------------------------------
+-- START METHODS_METHOD_INDICATORS -----
+----------------------------------------
 
 insert into external.mig_methods_method_indicators
 select -row_number() over (order by c.id, l.id), l."uuid", c."uuid"
@@ -788,6 +898,15 @@ join external.corr_method l on m.id_module = l.id
 join ec.questions q on q."ID"=c.id
 where q."QUESTION_KEY" not in ('q1204', 'q1203', 'q1201', 'q5302', 'q5306');
 
+--------------------------------------
+-- END METHODS_METHOD_INDICATORS -----
+--------------------------------------
+
+
+
+-------------------------------------------------
+-- START ORGANIZATIONS_ORGANIZATION_METHODS -----
+-------------------------------------------------
 
 insert into external.mig_organizations_organization_methods
 select  -row_number() over (order by o.id, l.id), o.uuid, l.uuid
@@ -798,6 +917,14 @@ join external.corr_method l on m.id_module = l.id
 join ec.questions q on q."ID"=l.id
 where q."QUESTION_KEY" not in ('q1204', 'q1203', 'q1201', 'q5302', 'q5306');
 
+-----------------------------------------------
+-- END ORGANIZATIONS_ORGANIZATION_METHODS -----
+-----------------------------------------------
+
+
+--------------------------------
+-- START USERS_USERPROFILE -----
+--------------------------------
 
 with ent as (
 	select u."ID", left(coalesce(max(u.phone),''),20) as phone
@@ -814,8 +941,13 @@ from ent e
 join external.corr_user c on e."ID"=c.id
 left join external.corr_organization o on e.id_entity=o.id
 , (select id from external.mig_users_user where name='MIGRATION') us;
+--------------------------------
+-- END USERS_USERPROFILE -----
+--------------------------------
 
-
+------------------------------
+-- START SETTINGS_GENDER -----
+------------------------------
 
 insert into external.mig_settings_gender
 select uuid_in(md5(random()::text || random()::text)::cstring), current_timestamp, current_timestamp, 'D', u.id
@@ -828,9 +960,15 @@ select uuid_in(md5(random()::text || random()::text)::cstring), current_timestam
 from external.mig_users_user u where name='MIGRATION';
 
 
---------------
+----------------------------
+-- END SETTINGS_GENDER -----
+----------------------------
 
 
+
+------------------------------
+-- START METHODS_SURVEY ------
+------------------------------
 
 drop table if exists external.mig_answer_question_campaign_module;
 create table external.mig_answer_question_campaign_module as
@@ -871,3 +1009,7 @@ join external.corr_user cu on m.id_user=cu.id
 join external.corr_campaign cc on m.id_campaign=cc.id
 , (select id from external.mig_users_user where name='MIGRATION') us
 where e.id_bs_state in (1,2,3,4);
+
+----------------------------
+-- END METHODS_SURVEY ------
+----------------------------
