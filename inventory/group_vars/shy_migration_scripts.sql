@@ -2,6 +2,14 @@
 --------------------------
 -- START DELETES ---------
 --------------------------
+delete from external.mig_methods_indicatorresult
+where exists (
+    select *
+    from external.mig_users_user u
+    where mig_methods_indicatorresult.created_by_id=u.id
+    and u.name='MIGRATION'
+);
+
 delete from external.mig_methods_survey
 where exists (
     select *
@@ -172,7 +180,44 @@ where exists (
 );
 
 
---TODO delete geodata
+delete
+from external.mig_geodata_city
+where exists (
+    select *
+    from external.mig_users_user u
+    where mig_geodata_city.created_by_id=u.id
+    and u.name='MIGRATION'
+);
+
+
+delete
+from external.mig_geodata_region
+where exists (
+    select *
+    from external.mig_users_user u
+    where mig_geodata_region.created_by_id=u.id
+    and u.name='MIGRATION'
+);
+
+
+delete
+from external.mig_geodata_province
+where exists (
+    select *
+    from external.mig_users_user u
+    where mig_geodata_province.created_by_id=u.id
+    and u.name='MIGRATION'
+);
+
+
+delete
+from external.mig_geodata_autonomouscommunity
+where exists (
+    select *
+    from external.mig_users_user u
+    where mig_geodata_autonomouscommunity.created_by_id=u.id
+    and u.name='MIGRATION'
+);
 
 --------------------------
 -- END DELETES -----------
@@ -201,17 +246,28 @@ where not exists (
 ;
 
 
+
 --------------------------
 -- START GEODATA ---------
 --------------------------
 
 insert into external.mig_geodata_country
-select -1,'Espanya' , 'Spain', 'Espanya', 'España', 'Espainia', 'España', 'Spain';
+select  uuid_in(md5(random()::text || random()::text)::cstring), current_timestamp, current_timestamp
+,'Espanya' , 'Spain', 'Espanya', 'España', 'Espainia', 'España', 'Spain'
+, us.id
+from (select id from external.mig_users_user where name='MIGRATION') us
+;
 
+
+drop table if exists external.corr_autonomouscommunity;
+create table external.corr_autonomouscommunity as
+select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
+from ec.autonomous_community;
 
 
 insert into external.mig_geodata_autonomouscommunity
-select -"ID"
+select ca.uuid
+, current_timestamp, current_timestamp
 , jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'
 , jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'
 , jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'
@@ -219,10 +275,19 @@ select -"ID"
 , jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}'
 , jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}'
 , null
+, us.id
 , c.id
 from ec.autonomous_community q
+join external.corr_autonomouscommunity ca on q."ID"=ca.id
 , external.mig_geodata_country c
-where c.name='Espanya';
+, (select id from external.mig_users_user where name='MIGRATION') us
+where c.name='Spain';
+
+
+drop table if exists external.corr_province;
+create table external.corr_province as
+select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
+from ec.provinces;
 
 
 with tb as (
@@ -236,10 +301,20 @@ from ec.provinces q
 join ec.autonomous_community c on q.id_autonomous_community = c."ID"
 )
 insert into external.mig_geodata_province
-select -tb."ID",coalesce(prov, prov_es), prov, prov, prov_gl, prov_eu, prov_es, null, mc.id, -1
+select pr.uuid, current_timestamp, current_timestamp
+,coalesce(prov, prov_es), prov, prov, prov_gl, prov_eu, prov_es, null, mc.id, c.id, us.id
 from tb
-join external.mig_geodata_autonomouscommunity mc on  ccaa=mc.name;
+join external.mig_geodata_autonomouscommunity mc on  ccaa=mc.name
+join external.corr_province pr on tb."ID"=pr.id
+, (select id from external.mig_users_user where name='MIGRATION') us
+, (select id from external.mig_geodata_country c where name='Spain') c
+;
 
+
+drop table if exists external.corr_region;
+create table external.corr_region as
+select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
+from ec.regions;
 
 
 with tb as (
@@ -253,11 +328,21 @@ from ec.regions q
 join ec.provinces c on q.id_province=c."ID"
 )
 insert into external.mig_geodata_region
-select -tb."ID"
+select  r.uuid, current_timestamp, current_timestamp
 ,reg, reg, reg, reg_gl, reg_eu, reg_es, null
-, null, mc.id
+, null
+, us.id
+, mc.id
 from tb
-join external.mig_geodata_province mc on  prov=mc.name;
+join external.mig_geodata_province mc on  prov=mc.name
+join external.corr_region r on tb."ID"=r.id
+, (select id from external.mig_users_user where name='MIGRATION') us;
+
+
+drop table if exists external.corr_city;
+create table external.corr_city as
+select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
+from ec.towns;
 
 
 create table external.mig_towns as
@@ -278,12 +363,15 @@ select distinct * from external.mig_towns
 )
 insert into external.mig_geodata_city
 select
--row_number() over(order by town, mc.id, mr.id),
+ c.uuid, current_timestamp, current_timestamp,
 town, town, town, town_gl, town_eu, town_es, null
+, us.id
 , mc.id, mr.id
 from tb
+join external.corr_city c on c.id=tb."ID"
 left join external.mig_geodata_province mc on  coalesce(prov,prov_es)=mc.name
-left join external.mig_geodata_region mr on region=mr.name;
+left join external.mig_geodata_region mr on region=mr.name
+, (select id from external.mig_users_user where name='MIGRATION') us;
 
 
 drop table external.mig_towns;
@@ -291,6 +379,7 @@ drop table external.mig_towns;
 --------------------------
 -- END GEODATA -----------
 --------------------------
+
 
 
 ---------------------------------
@@ -444,29 +533,32 @@ select c.uuid as id
 , current_timestamp as created_at
 , current_timestamp as updated_at
 , e.name as name
+, null as logo --TODO
 , e."NIF" as vat_number
 , e."WEB"
 , case id_bs_state when 1 then 0 when 4 then 1 when 3 then 2 when 2 then 3 end as status
-, cy.id as town
-, cu.uuid as contact_id
+, cy.uuid as town
+--, cu.uuid as contact_id
 , gc.id as country
 , us.id as created_by_id
 , ls.uuid as legal_structure_id
-, cy.region_id as region
+, mgc.region_id as region
 from ec.entities e
 join external.corr_organization c on e."ID"=c.id
 join external.corr_legalstructure ls on ls.id=e.id_legal_form  --hi ha casos que no hi son
-join external.corr_user cu on cu.id= e.id_user --hi ha casos que no hi son
-left join  external.mig_geodata_city cy on -e.id_town=cy.id
+--join external.corr_user cu on cu.id= e.id_user --hi ha casos que no hi son
+left join external.corr_city cy on e.id_town=cy.id
+left join external.mig_geodata_city mgc on cy.uuid=mgc.id
 , external.mig_geodata_country gc
 , (select id from external.mig_users_user where name='MIGRATION') us
-where gc.name='Espanya'
+where gc.name='Spain'
 and e.id_bs_state in (1,2,3,4);
 
 
 -------------------------------------------
 -- END ORGANIZATIONS_ORGANIZATION ---------
 -------------------------------------------
+
 
 
 -----------------------------------
@@ -608,6 +700,7 @@ select -row_number()over( order by li.uuid), l.uuid, li.uuid
 ---------------------------------
 
 
+
 ---------------------------------
 -- START METHODS_INDICATOR ------
 ---------------------------------
@@ -668,7 +761,6 @@ select q.uuid, current_timestamp, current_timestamp,
 	when 'Text' then 'T'
 	else 'S'
 	end
-, '' as sub_data_type -- TODO
 , case "UNIT"
 	when '' then 'C'
 	when 'Boolean' then 'C'
@@ -747,7 +839,6 @@ select i.uuid, current_timestamp, current_timestamp
 	when 'Text' then 'T'
 	else 'S'
 	end
-, '' as sub_data_type -- TODO
 , case "UNIT"
 	when '' then 'C'
 	when 'Boolean' then 'C'
@@ -948,17 +1039,17 @@ left join external.corr_organization o on e.id_entity=o.id
 ------------------------------
 -- START SETTINGS_GENDER -----
 ------------------------------
-
-insert into external.mig_settings_gender
-select uuid_in(md5(random()::text || random()::text)::cstring), current_timestamp, current_timestamp, 'D', u.id
-from external.mig_users_user u where name='MIGRATION'
-union all
-select uuid_in(md5(random()::text || random()::text)::cstring), current_timestamp, current_timestamp, 'H', u.id
-from external.mig_users_user u where name='MIGRATION'
-union all
-select uuid_in(md5(random()::text || random()::text)::cstring), current_timestamp, current_timestamp, 'NB', u.id
-from external.mig_users_user u where name='MIGRATION';
-
+--
+--insert into external.mig_settings_gender
+--select uuid_in(md5(random()::text || random()::text)::cstring), current_timestamp, current_timestamp, 'D', u.id
+--from external.mig_users_user u where name='MIGRATION'
+--union all
+--select uuid_in(md5(random()::text || random()::text)::cstring), current_timestamp, current_timestamp, 'H', u.id
+--from external.mig_users_user u where name='MIGRATION'
+--union all
+--select uuid_in(md5(random()::text || random()::text)::cstring), current_timestamp, current_timestamp, 'NB', u.id
+--from external.mig_users_user u where name='MIGRATION';
+--
 
 ----------------------------
 -- END SETTINGS_GENDER -----
@@ -966,6 +1057,7 @@ from external.mig_users_user u where name='MIGRATION';
 
 
 
+-
 ------------------------------
 -- START METHODS_SURVEY ------
 ------------------------------
@@ -1008,8 +1100,89 @@ join external.mig_organizations_organization o on co.uuid=o.id
 join external.corr_user cu on m.id_user=cu.id
 join external.corr_campaign cc on m.id_campaign=cc.id
 , (select id from external.mig_users_user where name='MIGRATION') us
-where e.id_bs_state in (1,2,3,4);
+
 
 ----------------------------
 -- END METHODS_SURVEY ------
 ----------------------------
+
+
+
+
+---------------------------------------
+-- START METHODS_INDICATORRESULT ------
+---------------------------------------
+drop table if exists external.mig_aux_indicatorresult_results;
+create table external.mig_aux_indicatorresult_results as
+select uuid_in(md5(random()::text || random()::text)::cstring) as uuid
+	, a."ID" as id_answer
+	, q."ID" as id_question
+    , a.value as value_origin
+    , q."QUESTIONTYPE"
+    , c."ID" as id_campaign
+    , a.id_entity
+    , m."ID" as id_module
+    from ec.questions q
+        join ec.campaigns c on q.id_campaign = c."ID"
+        join ec.answers  a on a.id_question = q."ID"
+        join ec.module_form_block_question mf on mf.id_question=q."ID"
+        join ec.module_form_block mfb on mf.id_module_form_block=mfb."id"
+        join ec.modules m on mfb.id_module=m."ID"
+        join ec.entity_module em on em.id_module = m."ID" and em.id_entity =  a.id_entity
+    where 1=1
+        and a.value is not null;
+
+
+drop table if exists external.corr_indicatorresult;
+create table external.corr_indicatorresult as
+with genders as (
+	select string_agg(id::text, ',' order by ord) as gender_id
+	-- TODO validar 1: dona
+	from (
+		select 1 as id, 1 ord
+		union all
+		select 2, 2 ord
+		union all
+		select 3, 3 ord
+	) a
+)
+select uuid_in(md5(random()::text || random()::text)::cstring) as uuid_indicator_gender
+, r.uuid as uuid_answer, r.id_answer, r.id_question, r.value_origin, r."QUESTIONTYPE" as question_type, r.id_campaign, r.id_entity, r.id_module
+, unnest( (string_to_array(replace(replace(r.value_origin,'[',''),']',''),','))) as value
+, unnest(string_to_array(g.gender_id,','))::int as answer_genders
+from external.mig_aux_indicatorresult_results r
+, genders g;
+
+
+
+select *
+from external.corr_indicatorresult
+
+insert into external.mig_methods_indicatorresult
+select  uuid_in(md5(random()::text || random()::text)::cstring) as id, current_timestamp as created_at, current_timestamp as updated_at
+ 	, case when question_type in ('Gender', 'GenderDecimal') then answer_genders else 1 end as gender_id
+	, case when question_type in ('Gender', 'GenderDecimal') then ir.value else ir.value_origin end as value
+ 	, us.id as created_by_id
+ 	, i.uuid as indicator_id
+ 	, s.uuid as survey_id
+ 	--, ir.*
+ from external.corr_indicatorresult ir
+ 	join external.corr_survey s on s. id_campaign=ir.id_campaign and  s.id_module=ir.id_module and s.id_entity=ir.id_entity
+ 	join external.mig_methods_survey ms on ms.id=s.uuid --TODO només els surveis que existeixen
+ 	join external.corr_indicator i on ir.id_question=i.id
+ 	join external.mig_methods_indicator mi on i.uuid=mi.id --TODO només els indicadors que existeixen
+ 	, (select id from external.mig_users_user where name='MIGRATION') us
+where ir.value is not null
+	and question_type not in ('Gender', 'GenderDecimal') -- TODO
+group by case when question_type in ('Gender', 'GenderDecimal') then ir.value else ir.value_origin end
+ 	, us.id
+ 	, case when question_type in ('Gender', 'GenderDecimal') then answer_genders else 1 end
+ 	, i.uuid
+ 	, s.uuid
+ 	;
+
+
+
+---------------------------------------
+-- END METHODS_INDICATORRESULT --------
+---------------------------------------
