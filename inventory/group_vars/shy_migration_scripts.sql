@@ -2,6 +2,22 @@
 --------------------------
 -- START DELETES ---------
 --------------------------
+delete from external.mig_methods_section_indicators
+where exists (select *
+	from external.corr_section l
+	where mig_methods_section_indicators.section_id=l.uuid
+);
+
+
+delete from external.mig_methods_section
+where exists (
+    select *
+    from external.mig_users_user u
+    where mig_methods_section.created_by_id=u.id
+    and u.name='MIGRATION'
+);
+
+
 delete from external.mig_methods_indicatorresult
 where exists (
     select *
@@ -18,13 +34,13 @@ where exists (
     and u.name='MIGRATION'
 );
 
-delete from external.mig_settings_gender
-where exists (
-    select *
-    from external.mig_users_user u
-    where mig_settings_gender.created_by_id=u.id
-    and u.name='MIGRATION'
-);
+--delete from external.mig_settings_gender
+--where exists (
+--    select *
+--    from external.mig_users_user u
+--    where mig_settings_gender.created_by_id=u.id
+--    and u.name='MIGRATION'
+--);
 
 delete from external.mig_users_userprofile
 where exists (
@@ -981,13 +997,35 @@ left join external.corr_method l on m."ID" = l.id ;
 -- START METHODS_METHOD_INDICATORS -----
 ----------------------------------------
 
+-- això serveix només pels indirectes.
 insert into external.mig_methods_method_indicators
 select -row_number() over (order by c.id, l.id), l."uuid", c."uuid"
 from ec.modules_indicators m
-join external.corr_indicator c on m.id_indicator  = c.id
+join external.corr_indicator_indirect c on m.id_indicator  = c.id
 join external.corr_method l on m.id_module = l.id
-join ec.questions q on q."ID"=c.id
-where q."QUESTION_KEY" not in ('q1204', 'q1203', 'q1201', 'q5302', 'q5306');
+join external.mig_methods_method mm on mm.id=l.uuid
+join external.mig_methods_indicator ii on c.uuid=ii.id
+join ec.indicators q on q."ID"=c.id
+;
+
+-- indicadors directes
+insert into external.mig_methods_method_indicators
+with t as (
+select distinct ci.uuid as induuid, ct.uuid as topuuid
+from ec.module_form_block_question q
+join ec.module_form_block fb on q.id_module_form_block = fb.id
+join  external.corr_method ct on fb.id_module =ct.id
+join external.corr_indicator ci on q.id_question=ci.id
+join ec.questions qu on q.id_question=qu."ID"
+where  qu."QUESTION_KEY" not in ('q1204', 'q1203', 'q1201', 'q5302', 'q5306')
+group by ci.uuid, ct.uuid
+)
+select a.id-row_number()over(order by induuid, topuuid)
+, topuuid, induuid
+from t
+, (select min(id)as id from external.mig_methods_method_indicators) a;
+
+
 
 --------------------------------------
 -- END METHODS_METHOD_INDICATORS -----
@@ -1185,4 +1223,85 @@ group by case when question_type in ('Gender', 'GenderDecimal') then ir.value el
 
 ---------------------------------------
 -- END METHODS_INDICATORRESULT --------
+---------------------------------------
+
+
+---------------------------------------
+-- START METHODS_SECTION --------------
+---------------------------------------
+
+
+drop table if exists external.corr_section;
+create table external.corr_section as
+select uuid_in(md5(random()::text || random()::text)::cstring) as uuid, mfb.*, fb.name, fb.description
+from  ec.module_form_block mfb
+	join  ec.form_blocks fb on mfb.id_form_block = fb."ID"
+
+
+with forms as (
+select *
+	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'  as ca
+	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "gl").text') #>> '{}' as gl
+	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}' as eu
+	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}' as es
+from external.corr_section q
+)
+insert into external.mig_methods_section
+select f.uuid, current_timestamp, current_timestamp, left(f.ca,60), left(f.ca,60), left(f.ca,60), left(f.gl,60), left(f.eu,60), left(f.es,60), null,
+coalesce(f.form_block_index, row_number() over (partition by f.id_module order by f.id_form_block))
+, us.id
+, m.uuid
+, null
+from forms f
+	join external.corr_method m on f.id_module=m.id
+	, (select id from external.mig_users_user where name='MIGRATION') us
+where f.id_parent is null;
+
+
+with forms as (
+select *
+	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'  as ca
+	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "gl").text') #>> '{}' as gl
+	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}' as eu
+	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}' as es
+from external.corr_section q
+)
+insert into external.mig_methods_section
+select f.uuid, current_timestamp, current_timestamp, left(f.ca,60), left(f.ca,60), left(f.ca,60), left(f.gl,60), left(f.eu,60), left(f.es,60), null
+,  coalesce(f.form_block_index, row_number() over (partition by f.id_module order by f.id_form_block))
+, us.id
+, m.uuid
+, pf.uuid
+from forms f
+	join forms pf on f.id_parent=pf.id
+	join external.corr_method m on f.id_module=m.id
+	, (select id from external.mig_users_user where name='MIGRATION') us;
+
+
+---------------------------------------
+-- END METHODS_SECTION ----------------
+---------------------------------------
+
+
+---------------------------------------
+-- START METHODS_SECTION_INDICATORS ---
+---------------------------------------
+
+insert into external.mig_methods_section_indicators
+with t as (
+select ci.uuid as induuid, ct.uuid as topuuid, min(fb.form_block_index) as form_block_index, min(fb.id_module) as id_module, min(fb.id_form_block) as id_form_block
+from ec.module_form_block_question q
+join ec.module_form_block fb on q.id_module_form_block = fb.id
+join  external.corr_section ct on fb.id =ct.id
+join external.corr_indicator ci on q.id_question=ci.id
+join ec.questions qu on q.id_question=qu."ID"
+where  qu."QUESTION_KEY" not in ('q1204', 'q1203', 'q1201', 'q5302', 'q5306')
+group by ci.uuid, ct.uuid
+)
+select -row_number()over(order by induuid, topuuid), coalesce(form_block_index, row_number() over (partition by id_module order by id_form_block))
+, topuuid, induuid
+from t;
+
+---------------------------------------
+-- END METHODS_SECTION_INDICATORS -----
 ---------------------------------------
