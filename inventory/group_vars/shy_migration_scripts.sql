@@ -2,6 +2,24 @@
 --------------------------
 -- START DELETES ---------
 --------------------------
+delete from external.mig_methods_invitation
+where exists (
+    select *
+    from external.mig_users_user u
+    where mig_methods_invitation.created_by_id=u.id
+    and u.name='MIGRATION'
+);
+
+
+delete from external.mig_methods_externalsurveyinvitation
+where exists (
+    select *
+    from external.mig_users_user u
+    where mig_methods_externalsurveyinvitation.created_by_id=u.id
+    and u.name='MIGRATION'
+);
+
+
 delete from external.mig_methods_section_indicators
 where exists (select *
 	from external.corr_section l
@@ -549,7 +567,7 @@ select c.uuid as id
 , current_timestamp as created_at
 , current_timestamp as updated_at
 , e.name as name
-, null as logo --TODO
+, null as logo --Update a posteriori. Primer s'ha de pujar el fitxer a s3
 , e."NIF" as vat_number
 , e."WEB"
 , case id_bs_state when 1 then 0 when 4 then 1 when 3 then 2 when 2 then 3 end as status
@@ -570,6 +588,67 @@ left join external.mig_geodata_city mgc on cy.uuid=mgc.id
 where gc.name='Spain'
 and e.id_bs_state in (1,2,3,4);
 
+
+--suposem que els fitxers estan pujats a s3
+update external.mig_organizations_organization set logo = mig_organizations_organization.id::varchar||'.'||
+CASE
+         WHEN substring(e.logo FROM 1 FOR 8) = E'\\x89504e470d0a1a0a' THEN 'PNG'
+         WHEN substring(e.logo FROM 1 FOR 3) = E'\\xffd8ff' THEN 'JPEG'
+         WHEN substring(e.logo FROM 1 FOR 4) = E'GIF8' THEN 'GIF'
+         ELSE 'Desconegut' end
+from ec.entities e
+join external.corr_organization o on e."ID"=o.id
+where  CASE
+         WHEN substring(e.logo FROM 1 FOR 8) = E'\\x89504e470d0a1a0a' THEN 'PNG'
+         WHEN substring(e.logo FROM 1 FOR 3) = E'\\xffd8ff' THEN 'JPEG'
+         WHEN substring(e.logo FROM 1 FOR 4) = E'GIF8' THEN 'GIF'
+         ELSE 'Desconegut'
+       end<>'Desconegut'
+       and o.uuid=mig_organizations_organization.id;
+
+--from sqlalchemy import create_engine
+--import urllib.parse
+--from boto3 import client
+--
+--password_enc = urllib.parse.quote_plus("")
+--con = create_engine(f'postgresql+psycopg2://usuari:{password_enc}@localhost:64320/dwh')
+--
+--results = con.execute("""
+--select logo, CASE
+--         WHEN substring(logo FROM 1 FOR 8) = E'\\\\x89504e470d0a1a0a' THEN 'PNG'
+--         WHEN substring(logo FROM 1 FOR 3) = E'\\\\xffd8ff' THEN 'JPEG'
+--         WHEN substring(logo FROM 1 FOR 4) = E'GIF8' THEN 'GIF'
+--         ELSE 'Desconegut'
+--       END AS tipus, e."ID", o.uuid
+--from ec.entities e
+--join external.corr_organization o on e."ID"=o.id
+--where  CASE
+--         WHEN substring(logo FROM 1 FOR 8) = E'\\\\x89504e470d0a1a0a' THEN 'PNG'
+--         WHEN substring(logo FROM 1 FOR 3) = E'\\\\xffd8ff' THEN 'JPEG'
+--         WHEN substring(logo FROM 1 FOR 4) = E'GIF8' THEN 'GIF'
+--         ELSE 'Desconegut'
+--       end<>'Desconegut'
+--       """)
+--
+--s3 = client(
+--    "s3",
+--    region_name="",
+--    endpoint_url="",
+--    aws_access_key_id="",
+--    aws_secret_access_key="",
+--)
+--
+--
+--
+--for record in results:
+--    print("\n", record)
+--    fitxer = str(record[3]) + "."+record[1]
+--    local = "/Imatges/"+fitxer
+--
+--    with open(local, "wb") as f:
+--        f.write(record[0])  # Guardem el contingut del camp BYTEA
+--    s3.upload_file(local, "showyourheart", "static/logos/"+fitxer)
+--
 
 -------------------------------------------
 -- END ORGANIZATIONS_ORGANIZATION ---------
@@ -614,36 +693,36 @@ left join external.corr_campaign qp on c.id_previous_campaign=qp.id
 --------------------------------
 -- START METHODS_TOPIC ---------
 --------------------------------
-drop table if exists external.corr_topic;
-create table external.corr_topic as
-select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
-from ec.form_blocks;
-
-
-with t as (
-	select "ID", "ID_PARENT"
-	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'  as ca
-	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "gl").text') #>> '{}' as gl
-	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}' as eu
-	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}' as es
-	, jsonb_path_query(q.description::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'  as dca
-	, jsonb_path_query(q.description::jsonb, '$.texts[*] ? (@.la == "gl").text') #>> '{}' as dgl
-	, jsonb_path_query(q.description::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}' as deu
-	, jsonb_path_query(q.description::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}' as des
-	from ec.form_blocks q
-)
-insert into external.mig_methods_topic
-select c.uuid, current_timestamp, current_timestamp
-, case when left(ca,50)='' then left(es,50) else left(ca,50) end
-, case when left(ca,50)='' then left(es,50) else left(ca,50) end, left(ca,50), left(gl,50), left(eu,50), left(es,50), null
-, dca, dca, dca, dgl, deu, des, null
-, us.id
-, cp.uuid
-from t
-	join external.corr_topic c on t."ID" = c.id
-	left join external.corr_topic cp on t."ID_PARENT" = cp.id
-	, (select id from external.mig_users_user where name='MIGRATION') us
-;
+--drop table if exists external.corr_topic;
+--create table external.corr_topic as
+--select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
+--from ec.form_blocks;
+--
+--
+--with t as (
+--	select "ID", "ID_PARENT"
+--	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'  as ca
+--	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "gl").text') #>> '{}' as gl
+--	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}' as eu
+--	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}' as es
+--	, jsonb_path_query(q.description::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'  as dca
+--	, jsonb_path_query(q.description::jsonb, '$.texts[*] ? (@.la == "gl").text') #>> '{}' as dgl
+--	, jsonb_path_query(q.description::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}' as deu
+--	, jsonb_path_query(q.description::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}' as des
+--	from ec.form_blocks q
+--)
+--insert into external.mig_methods_topic
+--select c.uuid, current_timestamp, current_timestamp
+--, case when left(ca,50)='' then left(es,50) else left(ca,50) end
+--, case when left(ca,50)='' then left(es,50) else left(ca,50) end, left(ca,50), left(gl,50), left(eu,50), left(es,50), null
+--, dca, dca, dca, dgl, deu, des, null
+--, us.id
+--, cp.uuid
+--from t
+--	join external.corr_topic c on t."ID" = c.id
+--	left join external.corr_topic cp on t."ID_PARENT" = cp.id
+--	, (select id from external.mig_users_user where name='MIGRATION') us
+--;
 
 ------------------------------
 -- END METHODS_TOPIC ---------
@@ -892,18 +971,18 @@ where t."FORMULA" is not null;
 ----------------------------------------
 
 -- De momento solo para los directos
-insert into external.mig_methods_indicator_topics
-with t as (
-select distinct ci.uuid as induuid, ct.uuid as topuuid
-from ec.module_form_block_question q
-join ec.module_form_block fb on q.id_module_form_block = fb.id
-join  external.corr_topic ct on fb.id_form_block =ct.id
-join external.corr_indicator ci on q.id_question=ci.id
-join ec.questions qu on q.id_question=qu."ID"
-where  qu."QUESTION_KEY" not in ('q1204', 'q1203', 'q1201', 'q5302', 'q5306')
-)
-select -row_number()over(order by induuid, topuuid), induuid, topuuid
-from t;
+--insert into external.mig_methods_indicator_topics
+--with t as (
+--select distinct ci.uuid as induuid, ct.uuid as topuuid
+--from ec.module_form_block_question q
+--join ec.module_form_block fb on q.id_module_form_block = fb.id
+--join  external.corr_topic ct on fb.id_form_block =ct.id
+--join external.corr_indicator ci on q.id_question=ci.id
+--join ec.questions qu on q.id_question=qu."ID"
+--where  qu."QUESTION_KEY" not in ('q1204', 'q1203', 'q1201', 'q5302', 'q5306')
+--)
+--select -row_number()over(order by induuid, topuuid), induuid, topuuid
+--from t;
 
 
 --------------------------------------
@@ -936,7 +1015,7 @@ insert into external.mig_methods_method
 select c.uuid, current_timestamp, current_timestamp, case when "ACTIVE"=1 then true else false end
 , ca, ca, ca, gl, eu, es, null
 , coalesce(dca,dgl, deu, des,'ND'), dca, dca, dgl, deu, des, null
-, coalesce(type, 'ORG') as unit_of_analysis --TODO
+, coalesce(type, 'ORG') as unit_of_analysis
 , '' as documentation --TODO
 , us.id
 , coalesce(sn.id, nt.id)
@@ -958,6 +1037,26 @@ left join (
 , (select id from external.mig_users_user where name='MIGRATION') us
 , (select id from external.mig_settings_network where name='Xarxa d''Economia Solidària') nt -- per defecte owner XES
 ;
+
+
+drop table if exists external.mig_external_modules;
+create table external.mig_external_modules as
+select distinct cm."uuid"
+from ec.questions q
+join ec.answers a on a.id_question = q."ID"
+join ec.module_form_block_question mf on mf.id_question=q."ID"
+join ec.module_form_block mfb on mf.id_module_form_block=mfb."id"
+join ec.modules m on mfb.id_module=m."ID"
+join ec.emails e on a.id_email=e."ID"
+join ec.contacts c on c."ID"=e.id_contact
+join external.corr_method cm on cm.id=m."ID" ;
+--where a.id_email =65709
+
+update external.mig_methods_method set unit_of_analysis='EXT'
+where exists (select *
+	from external.mig_external_modules m
+	where mig_methods_method.id=m.uuid
+);
 
 ----------------------------
 -- END METHODS_METHOD ------
@@ -1305,3 +1404,66 @@ from t;
 ---------------------------------------
 -- END METHODS_SECTION_INDICATORS -----
 ---------------------------------------
+
+
+
+---------------------------------------------
+-- START METHODS_ESTERNALSURVEYINVITATION ---
+---------------------------------------------
+
+drop table if exists external.mig_external_modules_invitations;
+create table external.mig_external_modules_invitations as
+select distinct cm."uuid" as external_survey_id , m."MODULE_KEY" as name, m.id_campaign as campaign_id, c."EMAIL" as email, c."NAME", c."SURNAME", c."HASH" as hash
+from ec.questions q
+join ec.answers a on a.id_question = q."ID"
+join ec.module_form_block_question mf on mf.id_question=q."ID"
+join ec.module_form_block mfb on mf.id_module_form_block=mfb."id"
+join ec.modules m on mfb.id_module=m."ID"
+join ec.emails e on a.id_email=e."ID"
+join ec.contacts c on c."ID"=e.id_contact
+join external.corr_method cm on cm.id=m."ID" ;
+
+
+insert into external.mig_methods_externalsurveyinvitation
+with t as (
+select distinct external_survey_id, name, campaign_id, c.uuid as uuid_campaign
+from external.mig_external_modules_invitations i
+	join external.corr_campaign c on c.id=i.campaign_id
+)
+select uuid_in(md5(random()::text || random()::text)::cstring) as uuid, current_timestamp, current_timestamp, name , uuid_campaign
+, us.id
+, external_survey_id
+from t
+, (select id from external.mig_users_user where name='MIGRATION') us;
+
+
+-------------------------------------------
+-- END METHODS_ESTERNALSURVEYINVITATION ---
+-------------------------------------------
+
+
+-------------------------------
+-- START METHODS_INVITATION ---
+-------------------------------
+
+insert into external.mig_methods_invitation
+select  uuid_in(md5(random()::text || random()::text)::cstring) as uuid, current_timestamp, current_timestamp
+, m."NAME"||' '||m."SURNAME" as name
+, case when cn.cnt>1 then m.hash||'_'||m.email else m.email end
+, 1
+, MD5(random()::text) as token
+, us.id
+, e.id
+from external.mig_external_modules_invitations m
+	join external.corr_campaign c on c.id=m.campaign_id
+	join (select email, count(distinct m.hash) as cnt
+		from external.mig_external_modules_invitations m
+		group by email) cn on m.email=cn.email
+join external.mig_methods_externalsurveyinvitation e on m.name=e.name and c.uuid=e.campaign_id and m.external_survey_id=e.external_survey_id
+, (select id from external.mig_users_user where name='MIGRATION') us
+;
+
+
+-------------------------------
+-- END METHODS_INVITATION ---
+-------------------------------
