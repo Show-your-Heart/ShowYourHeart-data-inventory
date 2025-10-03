@@ -803,28 +803,16 @@ select -row_number()over( order by li.uuid), l.uuid, li.uuid
 ---------------------------------
 -- START METHODS_INDICATOR ------
 ---------------------------------
---drop table if exists external.corr_indicator;
---create table external.corr_indicator as
---select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
---from ec.questions;
 drop table if exists external.corr_indicator;
 create table external.corr_indicator as
-select "QUESTION_KEY" as key,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
-from (select distinct "QUESTION_KEY" from ec.questions) a;
-
-drop table if exists external.corr_indicator_key;
-create table external.corr_indicator_key as
-select c.key, c.uuid, q."ID"  as id
-from ec.questions q
-join external.corr_indicator c on q."QUESTION_KEY" = c.key;
-
+select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
+from ec.questions;
 
 with
 qt as (
 select *,
 regexp_replace(regexp_replace(regexp_replace(regexp_replace(q.name, '\t', '', 'g'), 'fórmu"la"', 'fórmula'), 'contemp"la"', 'contempla'), '\\\\"', '') as nm
 , regexp_replace(regexp_replace(regexp_replace(regexp_replace(q.description, '\t', '', 'g'), 'fórmu"la"', 'fórmula'), 'contemp"la"', 'contempla'), '\\\\"', '') as descr
-, row_number() over (partition by "QUESTION_KEY" order by id_campaign desc) as rn
 from ec.questions q
 where q."QUESTION_KEY" not in ('q1204', 'q1203', 'q1201', 'q5302', 'q5306')
 ),
@@ -894,16 +882,14 @@ end
 ,  us.id
 , cl.uuid list_options_id
 from t
-	join external.corr_indicator q on t."QUESTION_KEY" = q.key
+	join external.corr_indicator q on t."ID" = q.id
 	left join (
-        select k.key, max(id_custom_list) as id_custom_list
+        select id_question, max(id_custom_list) as id_custom_list
         from ec.question_custom_list l
-            join external.corr_indicator_key k on l.id_question=k.id
-        group by k.key
-	) li on t."QUESTION_KEY"=li.key
+        group by id_question
+	) li on t."ID"=li.id_question
 	left join external.corr_list cl on li.id_custom_list = cl.id
 	, (select id from external.mig_users_user where name='MIGRATION') us
-where t.rn=1
 ;
 
 
@@ -1138,7 +1124,7 @@ select distinct ci.uuid as induuid, ct.uuid as topuuid
 from ec.module_form_block_question q
 join ec.module_form_block fb on q.id_module_form_block = fb.id
 join  external.corr_method ct on fb.id_module =ct.id
-join external.corr_indicator_key ci on q.id_question=ci.id
+join external.corr_indicator ci on q.id_question=ci.id
 join ec.questions qu on q.id_question=qu."ID"
 where  qu."QUESTION_KEY" not in ('q1204', 'q1203', 'q1201', 'q5302', 'q5306')
 group by ci.uuid, ct.uuid
@@ -1159,7 +1145,7 @@ from t
 -------------------------------------------------
 -- START ORGANIZATIONS_ORGANIZATION_METHODS -----
 -------------------------------------------------
---TODO revisar join amb ec.questions
+
 insert into external.mig_organizations_organization_methods
 select  -row_number() over (order by o.id, l.id), o.uuid, l.uuid
 from ec.entity_module m
@@ -1446,7 +1432,7 @@ select  uuid_in(md5(random()::text || random()::text)::cstring) as id
  from external.corr_indicatorresult ir
  	join external.corr_survey s on s. id_campaign=ir.id_campaign and  s.id_module=ir.id_module and s.id_entity=ir.id_entity
  	join external.mig_methods_survey ms on ms.id=s.uuid --TODO només els surveis que existeixen
- 	join external.corr_indicator_key i on ir.id_question=i.id
+ 	join external.corr_indicator i on ir.id_question=i.id
  	join external.mig_methods_indicator mi on i.uuid=mi.id --TODO només els indicadors que existeixen
  	, (select id from external.mig_users_user where name='MIGRATION') us
 where ir.value is not null
@@ -1543,7 +1529,7 @@ select ci.uuid as induuid, ct.uuid as topuuid, min(fb.form_block_index) as form_
 from ec.module_form_block_question q
 join ec.module_form_block fb on q.id_module_form_block = fb.id
 join  external.corr_section ct on fb.id =ct.id
-join external.corr_indicator_key ci on q.id_question=ci.id
+join external.corr_indicator ci on q.id_question=ci.id
 join ec.questions qu on q.id_question=qu."ID"
 where  qu."QUESTION_KEY" not in ('q1204', 'q1203', 'q1201', 'q5302', 'q5306')
 group by ci.uuid, ct.uuid

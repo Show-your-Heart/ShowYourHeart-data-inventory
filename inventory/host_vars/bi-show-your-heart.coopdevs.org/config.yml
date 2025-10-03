@@ -25,6 +25,9 @@ system_administrators:
   - name: quim
     ssh_key: "{{ inventory_dir }}/../pub_keys/quim.pub"
     state: present
+  - name: alberto
+    ssh_key: "{{ inventory_dir }}/../pub_keys/alberto.pub"
+    state: present
 
 
 development_environment: false
