@@ -1,3 +1,44 @@
+--
+----SELECT case when ordinal_position=1 then concat('drop foreign table if exists ','external.mig','_' ,c.table_name,';') else '' end AS strdrop,
+----case when ordinal_position=1 then concat('create FOREIGN TABLE ','external.mig','_' ,c.table_name,'(') else '' end ||
+--SELECT case when ordinal_position=1 then concat('drop foreign table if exists ','syh','_' ,c.table_name,';') else '' end AS strdrop,
+--case when ordinal_position=1 then concat('create FOREIGN TABLE ','syh','_' ,c.table_name,'(') else '' end ||
+--concat(
+--        case when ordinal_position=1 then '' else ',' end,
+--        '"',column_name,'"'
+--        ' ',
+--        case udt_name
+--                when 'varchar' then
+--                        case
+--                                when character_maximum_length is not null then concat(udt_name,'(',character_maximum_length,')')
+--                                else udt_name
+--                        end
+--                when 'numeric' then
+--                        case
+--                                when numeric_precision is not null  then concat(udt_name,'(',numeric_precision,',' ,numeric_scale,')' )
+--                                else udt_name
+--                        end
+--                else udt_name
+--        end,
+--        case when is_nullable='NO' then ' NOT NULL' else '' end
+--)
+--||
+----case when ordinal_position=ma.mo then concat(')SERVER postgres_fdw_syh_migration OPTIONS (schema_name ''',c.table_schema,''', table_name ''',c.table_name,''');')  else '' end as strend
+--case when ordinal_position=ma.mo then concat(')SERVER postgres_fdw_syh OPTIONS (schema_name ''',c.table_schema,''', table_name ''',c.table_name,''');')  else '' end as strend
+--  FROM information_schema.columns c
+--        join (
+--                select table_catalog, table_schema, table_name, max(ordinal_position) mo
+--                FROM information_schema.columns
+--                group by table_catalog, table_schema, table_name
+--        ) ma on c.table_catalog =ma.table_catalog and c.table_schema =ma.table_schema and c.table_name =ma.table_name
+--  where c.table_schema ='public'
+--  order by c.table_catalog , c.table_schema , c.table_name, c.ordinal_position
+
+
+
+
+
+
 drop foreign table if exists syh_auth_group;	create FOREIGN TABLE syh_auth_group("id" int4 NOT NULL
 	,"name" varchar(150) NOT NULL)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'auth_group');
 drop foreign table if exists syh_auth_group_permissions;	create FOREIGN TABLE syh_auth_group_permissions("id" int4 NOT NULL
@@ -45,18 +86,6 @@ drop foreign table if exists syh_extra_settings_setting;	create FOREIGN TABLE sy
 	,"description" text
 	,"value_json" text NOT NULL
 	,"validator" varchar(255))SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'extra_settings_setting');
-drop foreign table if exists syh_geodata_autonomouscommunity;	create FOREIGN TABLE syh_geodata_autonomouscommunity("id" uuid NOT NULL
-	,"created_at" timestamptz NOT NULL
-	,"updated_at" timestamptz NOT NULL
-	,"name" varchar(100) NOT NULL
-	,"name_en" varchar(100)
-	,"name_ca" varchar(100)
-	,"name_gl" varchar(100)
-	,"name_eu" varchar(100)
-	,"name_es" varchar(100)
-	,"name_nl" varchar(100)
-	,"created_by_id" uuid
-	,"country_id" uuid NOT NULL)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'geodata_autonomouscommunity');
 drop foreign table if exists syh_geodata_city;	create FOREIGN TABLE syh_geodata_city("id" uuid NOT NULL
 	,"created_at" timestamptz NOT NULL
 	,"updated_at" timestamptz NOT NULL
@@ -67,9 +96,11 @@ drop foreign table if exists syh_geodata_city;	create FOREIGN TABLE syh_geodata_
 	,"name_eu" varchar(100)
 	,"name_es" varchar(100)
 	,"name_nl" varchar(100)
+	,"name_fr" varchar(100)
 	,"created_by_id" uuid
-	,"province_id" uuid
-	,"region_id" uuid)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'geodata_city');
+	,"country_id" uuid
+	,"region2_id" uuid
+	,"region3_id" uuid)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'geodata_city');
 drop foreign table if exists syh_geodata_country;	create FOREIGN TABLE syh_geodata_country("id" uuid NOT NULL
 	,"created_at" timestamptz NOT NULL
 	,"updated_at" timestamptz NOT NULL
@@ -80,8 +111,9 @@ drop foreign table if exists syh_geodata_country;	create FOREIGN TABLE syh_geoda
 	,"name_eu" varchar(100)
 	,"name_es" varchar(100)
 	,"name_nl" varchar(100)
+	,"name_fr" varchar(100)
 	,"created_by_id" uuid)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'geodata_country');
-drop foreign table if exists syh_geodata_province;	create FOREIGN TABLE syh_geodata_province("id" uuid NOT NULL
+drop foreign table if exists syh_geodata_region1;	create FOREIGN TABLE syh_geodata_region1("id" uuid NOT NULL
 	,"created_at" timestamptz NOT NULL
 	,"updated_at" timestamptz NOT NULL
 	,"name" varchar(100) NOT NULL
@@ -91,10 +123,24 @@ drop foreign table if exists syh_geodata_province;	create FOREIGN TABLE syh_geod
 	,"name_eu" varchar(100)
 	,"name_es" varchar(100)
 	,"name_nl" varchar(100)
-	,"autonomous_community_id" uuid
+	,"name_fr" varchar(100)
+	,"country_id" uuid NOT NULL
+	,"created_by_id" uuid)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'geodata_region1');
+drop foreign table if exists syh_geodata_region2;	create FOREIGN TABLE syh_geodata_region2("id" uuid NOT NULL
+	,"created_at" timestamptz NOT NULL
+	,"updated_at" timestamptz NOT NULL
+	,"name" varchar(100) NOT NULL
+	,"name_en" varchar(100)
+	,"name_ca" varchar(100)
+	,"name_gl" varchar(100)
+	,"name_eu" varchar(100)
+	,"name_es" varchar(100)
+	,"name_nl" varchar(100)
+	,"name_fr" varchar(100)
 	,"country_id" uuid
-	,"created_by_id" uuid)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'geodata_province');
-drop foreign table if exists syh_geodata_region;	create FOREIGN TABLE syh_geodata_region("id" uuid NOT NULL
+	,"created_by_id" uuid
+	,"region1_id" uuid)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'geodata_region2');
+drop foreign table if exists syh_geodata_region3;	create FOREIGN TABLE syh_geodata_region3("id" uuid NOT NULL
 	,"created_at" timestamptz NOT NULL
 	,"updated_at" timestamptz NOT NULL
 	,"name" varchar(100) NOT NULL
@@ -104,9 +150,10 @@ drop foreign table if exists syh_geodata_region;	create FOREIGN TABLE syh_geodat
 	,"name_eu" varchar(100)
 	,"name_es" varchar(100)
 	,"name_nl" varchar(100)
-	,"autonomous_community_id" uuid
+	,"name_fr" varchar(100)
 	,"created_by_id" uuid
-	,"province_id" uuid)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'geodata_region');
+	,"region1_id" uuid
+	,"region2_id" uuid)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'geodata_region3');
 drop foreign table if exists syh_geodata_zipcode;	create FOREIGN TABLE syh_geodata_zipcode("id" uuid NOT NULL
 	,"created_at" timestamptz NOT NULL
 	,"updated_at" timestamptz NOT NULL
@@ -123,6 +170,7 @@ drop foreign table if exists syh_methods_campaign;	create FOREIGN TABLE syh_meth
 	,"name_eu" varchar(400)
 	,"name_es" varchar(400)
 	,"name_nl" varchar(400)
+	,"name_fr" varchar(400)
 	,"year" varchar(4) NOT NULL
 	,"status" bool NOT NULL
 	,"start_date" date
@@ -142,7 +190,7 @@ drop foreign table if exists syh_methods_externalsurveyinvitation;	create FOREIG
 drop foreign table if exists syh_methods_indicator;	create FOREIGN TABLE syh_methods_indicator("id" uuid NOT NULL
 	,"created_at" timestamptz NOT NULL
 	,"updated_at" timestamptz NOT NULL
-	,"project_id" varchar(50) NOT NULL
+	,"code" varchar(50) NOT NULL
 	,"version" varchar(4) NOT NULL
 	,"name" varchar(1000) NOT NULL
 	,"name_en" varchar(1000)
@@ -151,6 +199,7 @@ drop foreign table if exists syh_methods_indicator;	create FOREIGN TABLE syh_met
 	,"name_eu" varchar(1000)
 	,"name_es" varchar(1000)
 	,"name_nl" varchar(1000)
+	,"name_fr" varchar(1000)
 	,"description" varchar(2500) NOT NULL
 	,"description_en" varchar(2500)
 	,"description_ca" varchar(2500)
@@ -158,6 +207,7 @@ drop foreign table if exists syh_methods_indicator;	create FOREIGN TABLE syh_met
 	,"description_eu" varchar(2500)
 	,"description_es" varchar(2500)
 	,"description_nl" varchar(2500)
+	,"description_fr" varchar(2500)
 	,"is_direct_indicator" bool NOT NULL
 	,"category" varchar NOT NULL
 	,"data_type" varchar NOT NULL
@@ -165,6 +215,8 @@ drop foreign table if exists syh_methods_indicator;	create FOREIGN TABLE syh_met
 	,"condition" varchar(400) NOT NULL
 	,"formula" varchar(400) NOT NULL
 	,"validation" varchar(50) NOT NULL
+	,"dependant_indicators" jsonb
+	,"mandatory" bool NOT NULL
 	,"message" varchar(400) NOT NULL
 	,"message_en" varchar(400)
 	,"message_ca" varchar(400)
@@ -172,6 +224,7 @@ drop foreign table if exists syh_methods_indicator;	create FOREIGN TABLE syh_met
 	,"message_eu" varchar(400)
 	,"message_es" varchar(400)
 	,"message_nl" varchar(400)
+	,"message_fr" varchar(400)
 	,"created_by_id" uuid
 	,"list_options_id" uuid)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'methods_indicator');
 drop foreign table if exists syh_methods_indicator_topics;	create FOREIGN TABLE syh_methods_indicator_topics("id" int4 NOT NULL
@@ -182,6 +235,7 @@ drop foreign table if exists syh_methods_indicatorresult;	create FOREIGN TABLE s
 	,"updated_at" timestamptz NOT NULL
 	,"gender" int2
 	,"value" varchar NOT NULL
+	,"not_applicable" bool
 	,"created_by_id" uuid
 	,"indicator_id" uuid NOT NULL
 	,"survey_id" uuid NOT NULL)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'methods_indicatorresult');
@@ -204,6 +258,7 @@ drop foreign table if exists syh_methods_list;	create FOREIGN TABLE syh_methods_
 	,"title_eu" varchar(50)
 	,"title_es" varchar(50)
 	,"title_nl" varchar(50)
+	,"title_fr" varchar(50)
 	,"enable_others" bool NOT NULL
 	,"created_by_id" uuid)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'methods_list');
 drop foreign table if exists syh_methods_list_items;	create FOREIGN TABLE syh_methods_list_items("id" int4 NOT NULL
@@ -219,6 +274,7 @@ drop foreign table if exists syh_methods_listitem;	create FOREIGN TABLE syh_meth
 	,"title_eu" varchar(300)
 	,"title_es" varchar(300)
 	,"title_nl" varchar(300)
+	,"title_fr" varchar(300)
 	,"formula" varchar(50) NOT NULL
 	,"value" int2 NOT NULL
 	,"active" bool NOT NULL
@@ -234,6 +290,7 @@ drop foreign table if exists syh_methods_method;	create FOREIGN TABLE syh_method
 	,"name_eu" varchar(150)
 	,"name_es" varchar(150)
 	,"name_nl" varchar(150)
+	,"name_fr" varchar(150)
 	,"description" varchar(1000) NOT NULL
 	,"description_en" varchar(1000)
 	,"description_ca" varchar(1000)
@@ -241,6 +298,7 @@ drop foreign table if exists syh_methods_method;	create FOREIGN TABLE syh_method
 	,"description_eu" varchar(1000)
 	,"description_es" varchar(1000)
 	,"description_nl" varchar(1000)
+	,"description_fr" varchar(1000)
 	,"unit_of_analysis" varchar(3) NOT NULL
 	,"documentation" varchar(100)
 	,"created_by_id" uuid
@@ -267,6 +325,7 @@ drop foreign table if exists syh_methods_section;	create FOREIGN TABLE syh_metho
 	,"title_eu" varchar(60)
 	,"title_es" varchar(60)
 	,"title_nl" varchar(60)
+	,"title_fr" varchar(60)
 	,"order" int4 NOT NULL
 	,"created_by_id" uuid
 	,"method_id" uuid NOT NULL
@@ -284,7 +343,13 @@ drop foreign table if exists syh_methods_survey;	create FOREIGN TABLE syh_method
 	,"created_by_id" uuid
 	,"method_id" uuid NOT NULL
 	,"organization_id" uuid
-	,"user_id" uuid)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'methods_survey');
+	,"project_id" uuid
+	,"user_id" uuid
+	,"closed_date" timestamptz
+	,"evaluated_date" timestamptz
+	,"modified_date" timestamptz
+	,"start_date" timestamptz
+	,"validated_date" timestamptz)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'methods_survey');
 drop foreign table if exists syh_methods_topic;	create FOREIGN TABLE syh_methods_topic("id" uuid NOT NULL
 	,"created_at" timestamptz NOT NULL
 	,"updated_at" timestamptz NOT NULL
@@ -295,6 +360,7 @@ drop foreign table if exists syh_methods_topic;	create FOREIGN TABLE syh_methods
 	,"name_eu" varchar(100)
 	,"name_es" varchar(100)
 	,"name_nl" varchar(100)
+	,"name_fr" varchar(100)
 	,"description" varchar(400) NOT NULL
 	,"description_en" varchar(400)
 	,"description_ca" varchar(400)
@@ -302,6 +368,7 @@ drop foreign table if exists syh_methods_topic;	create FOREIGN TABLE syh_methods
 	,"description_eu" varchar(400)
 	,"description_es" varchar(400)
 	,"description_nl" varchar(400)
+	,"description_fr" varchar(400)
 	,"created_by_id" uuid
 	,"parent_id" uuid)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'methods_topic');
 drop foreign table if exists syh_organizations_organization;	create FOREIGN TABLE syh_organizations_organization("id" uuid NOT NULL
@@ -311,50 +378,41 @@ drop foreign table if exists syh_organizations_organization;	create FOREIGN TABL
 	,"logo" varchar(100)
 	,"vat_number" varchar(30) NOT NULL
 	,"website" varchar(300) NOT NULL
+	,"address" varchar(100) NOT NULL
 	,"status" int2 NOT NULL
+	,"privacy_policy_accepted" timestamptz
 	,"city_id" uuid
 	,"country_id" uuid
 	,"created_by_id" uuid
 	,"legal_structure_id" uuid NOT NULL
-	,"region_id" uuid)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'organizations_organization');
+	,"region3_id" uuid)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'organizations_organization');
 drop foreign table if exists syh_organizations_organization_methods;	create FOREIGN TABLE syh_organizations_organization_methods("id" int4 NOT NULL
 	,"organization_id" uuid NOT NULL
 	,"method_id" uuid NOT NULL)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'organizations_organization_methods');
-drop foreign table if exists syh_pg_stat_statements;	create FOREIGN TABLE syh_pg_stat_statements("userid" oid
-	,"dbid" oid
-	,"toplevel" bool
-	,"queryid" int8
-	,"query" text
-	,"plans" int8
-	,"total_plan_time" float8
-	,"min_plan_time" float8
-	,"max_plan_time" float8
-	,"mean_plan_time" float8
-	,"stddev_plan_time" float8
-	,"calls" int8
-	,"total_exec_time" float8
-	,"min_exec_time" float8
-	,"max_exec_time" float8
-	,"mean_exec_time" float8
-	,"stddev_exec_time" float8
-	,"rows" int8
-	,"shared_blks_hit" int8
-	,"shared_blks_read" int8
-	,"shared_blks_dirtied" int8
-	,"shared_blks_written" int8
-	,"local_blks_hit" int8
-	,"local_blks_read" int8
-	,"local_blks_dirtied" int8
-	,"local_blks_written" int8
-	,"temp_blks_read" int8
-	,"temp_blks_written" int8
-	,"blk_read_time" float8
-	,"blk_write_time" float8
-	,"wal_records" int8
-	,"wal_fpi" int8
-	,"wal_bytes" numeric)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'pg_stat_statements');
-drop foreign table if exists syh_pg_stat_statements_info;	create FOREIGN TABLE syh_pg_stat_statements_info("dealloc" int8
-	,"stats_reset" timestamptz)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'pg_stat_statements_info');
+drop foreign table if exists syh_organizations_project;	create FOREIGN TABLE syh_organizations_project("id" uuid NOT NULL
+	,"created_at" timestamptz NOT NULL
+	,"updated_at" timestamptz NOT NULL
+	,"vat_number" varchar(30) NOT NULL
+	,"name" varchar(150) NOT NULL
+	,"description" varchar(400) NOT NULL
+	,"contact_name" varchar(150) NOT NULL
+	,"contact_email" varchar(255) NOT NULL
+	,"contact_telephone" varchar(20) NOT NULL
+	,"main_action_scope" varchar NOT NULL
+	,"secondary_action_scope" varchar NOT NULL
+	,"main_legal_entity_type" varchar NOT NULL
+	,"secondary_legal_entity_type" varchar NOT NULL
+	,"start_date" date
+	,"end_date" date
+	,"publish_results" bool
+	,"authorize" bool NOT NULL
+	,"city_id" uuid
+	,"created_by_id" uuid
+	,"organization_id" uuid NOT NULL
+	,"region3_id" uuid)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'organizations_project');
+drop foreign table if exists syh_organizations_project_methods;	create FOREIGN TABLE syh_organizations_project_methods("id" int4 NOT NULL
+	,"project_id" uuid NOT NULL
+	,"method_id" uuid NOT NULL)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'organizations_project_methods');
 drop foreign table if exists syh_post_office_attachment;	create FOREIGN TABLE syh_post_office_attachment("id" int4 NOT NULL
 	,"file" varchar(100) NOT NULL
 	,"name" varchar(255) NOT NULL
@@ -409,6 +467,7 @@ drop foreign table if exists syh_settings_legalstructure;	create FOREIGN TABLE s
 	,"name_eu" varchar(50)
 	,"name_es" varchar(50)
 	,"name_nl" varchar(50)
+	,"name_fr" varchar(50)
 	,"created_by_id" uuid
 	,"parent_id" uuid)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'settings_legalstructure');
 drop foreign table if exists syh_settings_network;	create FOREIGN TABLE syh_settings_network("id" uuid NOT NULL
@@ -428,6 +487,7 @@ drop foreign table if exists syh_settings_sector;	create FOREIGN TABLE syh_setti
 	,"name_eu" varchar(150)
 	,"name_es" varchar(150)
 	,"name_nl" varchar(150)
+	,"name_fr" varchar(150)
 	,"created_by_id" uuid)SERVER postgres_fdw_syh OPTIONS (schema_name 'public', table_name 'settings_sector');
 drop foreign table if exists syh_users_user;	create FOREIGN TABLE syh_users_user("password" varchar(128) NOT NULL
 	,"last_login" timestamptz

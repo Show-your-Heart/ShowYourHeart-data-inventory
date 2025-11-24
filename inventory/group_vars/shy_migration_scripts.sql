@@ -284,10 +284,9 @@ where not exists (
 --------------------------
 -- START GEODATA ---------
 --------------------------
-
 insert into external.mig_geodata_country
 select  uuid_in(md5(random()::text || random()::text)::cstring), current_timestamp, current_timestamp
-,'Espanya' , 'Spain', 'Espanya', 'España', 'Espainia', 'España', 'Spain'
+,'Espanya' , 'Spain', 'Espanya', 'España', 'Espainia', 'España', 'Spain', 'L''Espagne'
 , us.id
 from (select id from external.mig_users_user where name='MIGRATION') us
 ;
@@ -308,6 +307,7 @@ select ca.uuid
 , jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "gl").text') #>> '{}'
 , jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}'
 , jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}'
+, null
 , null
 , c.id
 , us.id
@@ -335,7 +335,7 @@ join ec.autonomous_community c on q.id_autonomous_community = c."ID"
 )
 insert into external.mig_geodata_region2
 select pr.uuid, current_timestamp, current_timestamp
-,coalesce(prov, prov_es), prov, prov, prov_gl, prov_eu, prov_es, null, c.id, us.id, mc.id
+,coalesce(prov, prov_es), prov, prov, prov_gl, prov_eu, prov_es, null, null, c.id, us.id, mc.id
 from tb
 join external.mig_geodata_region1 mc on  ccaa=mc.name
 join external.corr_region2 pr on tb."ID"=pr.id
@@ -363,6 +363,7 @@ insert into external.mig_geodata_region3
 select  r.uuid, current_timestamp, current_timestamp
 ,reg, reg, reg, reg_gl, reg_eu, reg_es, null
 , us.id
+, null
 , null
 , mc.id
 from tb
@@ -396,7 +397,7 @@ select distinct * from external.mig_towns
 insert into external.mig_geodata_city
 select
  c.uuid, current_timestamp, current_timestamp,
-town, town, town, town_gl, town_eu, town_es, null
+town, town, town, town_gl, town_eu, town_es, null, null
 , us.id
 , co.id, mc.id, mr.id
 from tb
@@ -419,7 +420,7 @@ drop table external.mig_towns;
 
 insert into external.mig_geodata_country
 select  uuid_in(md5(random()::text || random()::text)::cstring), current_timestamp, current_timestamp
-,'Netherlands' , 'Netherlands', 'Països Baixos', 'Paises Bajos', 'Paises Bajos', 'Paises Bajos', 'Netherlands'
+,'Netherlands' , 'Netherlands', 'Països Baixos', 'Paises Bajos', 'Paises Bajos', 'Paises Bajos', 'Netherlands', 'Pays-Bas'
 , us.id
 from (select id from external.mig_users_user where name='MIGRATION') us
 ;
@@ -433,7 +434,7 @@ left join external."georef-netherlands-postcode-pc4.csv" c on g."Gemeente code" 
 )
 insert into external.mig_geodata_region2
 select uuid_in(md5(random()::text || random()::text)::cstring) as uuid, current_timestamp, current_timestamp
-, g."Provincie name", g."Provincie name", g."Provincie name", g."Provincie name", g."Provincie name", g."Provincie name", g."Provincie name"
+, g."Provincie name", g."Provincie name", g."Provincie name", g."Provincie name", g."Provincie name", g."Provincie name", g."Provincie name", g."Provincie name"
 , c.id, us.id, null
 from ned g
 , (select * from external.mig_geodata_country where name='Netherlands')c
@@ -449,7 +450,7 @@ left join external."georef-netherlands-postcode-pc4.csv" c on g."Gemeente code" 
 )
 insert into external.mig_geodata_city
 select uuid_in(md5(random()::text || random()::text)::cstring) as uuid, current_timestamp, current_timestamp
-, g."Gemeente name", g."Gemeente name", g."Gemeente name", g."Gemeente name", g."Gemeente name", g."Gemeente name", g."Gemeente name"
+, g."Gemeente name", g."Gemeente name", g."Gemeente name", g."Gemeente name", g."Gemeente name", g."Gemeente name", g."Gemeente name", g."Gemeente name"
 , us.id, c.id, r.id, null
 from ned g
 join external.mig_geodata_region2 r on g."Provincie name"=r.name
@@ -485,7 +486,7 @@ join external.mig_geodata_city ci on g."Gemeente name"=ci.name
 
 insert into external.mig_geodata_country
 select  uuid_in(md5(random()::text || random()::text)::cstring), current_timestamp, current_timestamp
-,'France' , 'France', 'França', 'Francia', 'Francia', 'Francia', 'Francia'
+,'France' , 'France', 'França', 'Francia', 'Francia', 'Francia', 'Francia', 'La France'
 , us.id
 from (select id from external.mig_users_user where name='MIGRATION') us
 ;
@@ -503,7 +504,7 @@ left join external."laposte_hexasmal.csv" h on g."Code Officiel Commune"=h."Code
 )
 insert into external.mig_geodata_region1
 select uuid_in(md5(random()::text || random()::text)::cstring) as uuid, current_timestamp, current_timestamp
-, g."Nom Officiel Région", g."Nom Officiel Région", g."Nom Officiel Région", g."Nom Officiel Région", g."Nom Officiel Région", g."Nom Officiel Région", g."Nom Officiel Région"
+, g."Nom Officiel Région", g."Nom Officiel Région", g."Nom Officiel Région", g."Nom Officiel Région", g."Nom Officiel Région", g."Nom Officiel Région", g."Nom Officiel Région", g."Nom Officiel Région"
 , c.id, us.id
 from fra g
 , (select * from external.mig_geodata_country where name='France')c
@@ -522,7 +523,7 @@ left join external."laposte_hexasmal.csv" h on g."Code Officiel Commune"=h."Code
 )
 insert into external.mig_geodata_region2
 select uuid_in(md5(random()::text || random()::text)::cstring) as uuid, current_timestamp, current_timestamp
-, g."Nom Officiel Département", g."Nom Officiel Département", g."Nom Officiel Département", g."Nom Officiel Département", g."Nom Officiel Département", g."Nom Officiel Département", g."Nom Officiel Département"
+, g."Nom Officiel Département", g."Nom Officiel Département", g."Nom Officiel Département", g."Nom Officiel Département", g."Nom Officiel Département", g."Nom Officiel Département", g."Nom Officiel Département", g."Nom Officiel Département"
 , c.id, us.id
 from fra g
 join external.mig_geodata_region1 r on g."Nom Officiel Région"=r.name
@@ -542,7 +543,7 @@ left join external."laposte_hexasmal.csv" h on g."Code Officiel Commune"=h."Code
 )
 insert into external.mig_geodata_region3
 select uuid_in(md5(random()::text || random()::text)::cstring) as uuid, current_timestamp, current_timestamp
-, g."Nom Officiel EPCI", g."Nom Officiel EPCI", g."Nom Officiel EPCI", g."Nom Officiel EPCI", g."Nom Officiel EPCI", g."Nom Officiel EPCI", g."Nom Officiel EPCI"
+, g."Nom Officiel EPCI", g."Nom Officiel EPCI", g."Nom Officiel EPCI", g."Nom Officiel EPCI", g."Nom Officiel EPCI", g."Nom Officiel EPCI", g."Nom Officiel EPCI", g."Nom Officiel EPCI"
 , us.id, r.id, r2.id
 from fra g
 join external.mig_geodata_region1 r on g."Nom Officiel Région"=r.name
@@ -564,7 +565,7 @@ left join external."laposte_hexasmal.csv" h on g."Code Officiel Commune"=h."Code
 )
 insert into external.mig_geodata_city
 select uuid_in(md5(random()::text || random()::text)::cstring) as uuid, current_timestamp, current_timestamp
-, g."Nom Officiel Commune", g."Nom Officiel Commune", g."Nom Officiel Commune", g."Nom Officiel Commune", g."Nom Officiel Commune", g."Nom Officiel Commune", g."Nom Officiel Commune"
+, g."Nom Officiel Commune", g."Nom Officiel Commune", g."Nom Officiel Commune", g."Nom Officiel Commune", g."Nom Officiel Commune", g."Nom Officiel Commune", g."Nom Officiel Commune", g."Nom Officiel Commune"
 , us.id,c.id, r2.id, r3.id
 from fra g
 left join external.mig_geodata_region2 r2 on g."Nom Officiel Département"=r2.name
@@ -624,7 +625,7 @@ join external.corr_sector c on q."ID"=c.id
 insert into external.mig_settings_sector
 select uuid, current_timestamp, current_timestamp
 ,ca as name, ca as en, ca, gl, eu, es
-, null
+, null, null
 , us.id
 from t
 , (select id from external.mig_users_user where name='MIGRATION') us;
@@ -648,7 +649,6 @@ insert into external.mig_settings_legalstructure
 select c.uuid, current_timestamp, current_timestamp
 , jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'  as ca
 , jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'  as ca
-, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'  as ca
 , jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "gl").text') #>> '{}' as gl
 , jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}' as eu
 , jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}' as es
@@ -659,7 +659,6 @@ from ec.legal_forms q
 join external.corr_legalstructure c on q."ID"=c.id
 left join external.corr_legalstructure cp on q.id_parent=cp.id
 , (select id from external.mig_users_user where name='MIGRATION') us;
-
 
 ------------------------------------------
 -- END SETTINGS_LEGALSTRUCTURE -----------
@@ -751,7 +750,6 @@ create table external.corr_organization as
 select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
 from ec.entities;
 
-
 insert into external.mig_organizations_organization
 select c.uuid as id
 , current_timestamp as created_at
@@ -760,7 +758,9 @@ select c.uuid as id
 , null as logo --Update a posteriori. Primer s'ha de pujar el fitxer a s3
 , e."NIF" as vat_number
 , e."WEB"
+, left(coalesce(e."ADDRESS", ' '),100)
 , case id_bs_state when 1 then 0 when 4 then 1 when 3 then 2 when 2 then 3 end as status
+, null as privacy_policy_accepted
 , cy.uuid as town
 --, cu.uuid as contact_id
 , gc.id as country
@@ -864,6 +864,7 @@ select q.uuid , current_timestamp, current_timestamp
 , jsonb_path_query(c.name::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}'
 , jsonb_path_query(c.name::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}'
 , null
+, null
 , year
 , case when "ACTIVE"=1 then true else false end as status
 , case when start_date<>'0000-00-00' then start_date::date else '9999-12-31' end
@@ -928,7 +929,7 @@ select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as u
 from ec.custom_list;
 
 insert into external.mig_methods_list
-select l.uuid, current_timestamp, current_timestamp, q.name, q.name, q.name, null, null, null, null, case when q.other_enabled =0 then false else true end, us.id
+select l.uuid, current_timestamp, current_timestamp, q.name, q.name, q.name, null, null, null, null, null, case when q.other_enabled =0 then false else true end, us.id
 from ec.custom_list q
 join external.corr_list l on q."ID"=l.id
 , (select id from external.mig_users_user where name='MIGRATION') us
@@ -958,7 +959,7 @@ from ec.custom_list_item q
 insert into external.mig_methods_listitem
 select l.uuid, current_timestamp, current_timestamp
 , coalesce(ca,es, eu, gl)
-, ca, ca, gl, eu, es, null
+, ca, ca, gl, eu, es, null, null
 , '' as formula, value, case when active='1' then true else false end as active
 , us.id
 from t q
@@ -1034,9 +1035,9 @@ insert into external.mig_methods_indicator
 select q.uuid, current_timestamp, current_timestamp,
 "QUESTION_KEY", t.version
 , coalesce(case when ca='' then es else ca end, gl, eu, es,'ND')
-, case when ca='' then es else ca end, ca, gl, eu, es, null
+, case when ca='' then es else ca end, ca, gl, eu, es, null, null
 , coalesce(dca, dgl, deu, des, 'ND')
-, dca, dca, dgl, deu, des,null
+, dca, dca, dgl, deu, des,null, null
 , true
 , 'SC' as category -- TODO
 , case "QUESTIONTYPE"
@@ -1046,8 +1047,8 @@ select q.uuid, current_timestamp, current_timestamp,
 	when 'Combo' then 'DR'
 	when 'Date' then 'D'
 	when 'Decimal' then 'DC'
-	when 'Gender' then 'I'
-	when 'GenderDecimal' then 'DC'
+	when 'Gender' then 'IG'
+	when 'GenderDecimal' then 'DG'
 	when 'Literal' then 'T'
 	when 'Number' then 'DC'
 	when 'PercentageGroup' then 'DC'
@@ -1062,7 +1063,7 @@ select q.uuid, current_timestamp, current_timestamp,
 	when '' then 'C'
 	when 'Boolean' then 'C'
 	when 'DinA4' then 'C'
-	when 'Euro' then 'DL'
+	when 'Euro' then 'EH'
 	when 'Hores' then 'C'
 	when 'KgAny' then 'C'
 	when 'Kwh' then 'E'
@@ -1076,7 +1077,9 @@ select q.uuid, current_timestamp, current_timestamp,
 end
 , '' as condition, '' as formula
 , left(coalesce(t."VALIDATION", ''), 50)
-, coalesce(t.vca, t.ves, t.veu, t.vgl, ''), t.vca, t.vca, t.vgl, t.veu, t.ves, null
+, null::jsonb
+, case when t."OPTIONAL"=1 then true else false end
+, coalesce(t.vca, t.ves, t.veu, t.vgl, ''), t.vca, t.vca, t.vgl, t.veu, t.ves, null, null
 ,  us.id
 , cl.uuid list_options_id
 from t
@@ -1115,8 +1118,8 @@ insert into external.mig_methods_indicator
 select i.uuid, current_timestamp, current_timestamp
 , t."INDICATOR_KEY"
 , t.version
-, coalesce(ca, es, gl, eu), ca, ca, gl, eu, es, null
-, coalesce(dca, des, dgl, deu), dca, dca, dgl, deu, des, null
+, coalesce(ca, es, gl, eu), ca, ca, gl, eu, es, null, null
+, coalesce(dca, des, dgl, deu), dca, dca, dgl, deu, des, null, null
 , false
 , 'SC' --TODO
 , case value_type
@@ -1126,8 +1129,8 @@ select i.uuid, current_timestamp, current_timestamp
 	when 'Combo' then 'DR'
 	when 'Date' then 'D'
 	when 'Decimal' then 'DC'
-	when 'Gender' then 'I'
-	when 'GenderDecimal' then 'DC'
+	when 'Gender' then 'IG'
+	when 'GenderDecimal' then 'DG'
 	when 'Literal' then 'T'
 	when 'Number' then 'DC'
 	when 'PercentageGroup' then 'DC'
@@ -1142,7 +1145,7 @@ select i.uuid, current_timestamp, current_timestamp
 	when '' then 'C'
 	when 'Boolean' then 'C'
 	when 'DinA4' then 'C'
-	when 'Euro' then 'DL'
+	when 'Euro' then 'EH'
 	when 'Hores' then 'C'
 	when 'KgAny' then 'C'
 	when 'Kwh' then 'E'
@@ -1157,7 +1160,9 @@ end
 ,'' as condition
 , t."FORMULA"
 , '' as validation
-, '' as message, null , null , null , null , null
+, null::jsonb
+, false
+, '' as message, null , null , null , null , null, null
 , us.id
 , null
 from t
@@ -1217,8 +1222,8 @@ with modules as (
 )
 insert into external.mig_methods_method
 select c.uuid, current_timestamp, current_timestamp, case when "ACTIVE"=1 then true else false end
-, ca, ca, ca, gl, eu, es, null
-, coalesce(dca,dgl, deu, des,'ND'), dca, dca, dgl, deu, des, null
+, ca, ca, ca, gl, eu, es, null, null
+, coalesce(dca,dgl, deu, des,'ND'), dca, dca, dgl, deu, des, null, null
 , coalesce(type, 'ORG') as unit_of_analysis
 , '' as documentation
 , us.id
@@ -1377,7 +1382,7 @@ insert into external.mig_users_userprofile
 select c.uuid, current_timestamp, current_timestamp, phone , us.id, o.uuid, c.uuid
 from ent e
 join external.corr_user c on e."ID"=c.id
-left join external.corr_organization o on e.id_entity=o.id
+ join external.corr_organization o on e.id_entity=o.id
 , (select id from external.mig_users_user where name='MIGRATION') us;
 --------------------------------
 -- END USERS_USERPROFILE -----
@@ -1439,7 +1444,8 @@ from a;
 
 insert into external.mig_methods_survey
 select m.uuid, current_timestamp, current_timestamp, '' as token, 0 as status, cc.uuid
-, us.id, cm.uuid, co.uuid, cu.uuid
+, us.id, cm.uuid, co.uuid, null as project_id, cu.uuid
+, null, null, null, null, null
 from external.corr_survey m
 join external.corr_method cm on m.id_module=cm.id
 join external.corr_organization co on m.id_entity=co.id
@@ -1656,7 +1662,7 @@ insert into external.mig_methods_indicatorresult
 select  uuid_in(md5(random()::text || random()::text)::cstring) as id
     , current_timestamp as created_at, current_timestamp as updated_at
  	, case when question_type in ('Gender', 'GenderDecimal') then answer_genders else null end as gender_id
-	, ir.value
+	, ir.value, false
  	, us.id as created_by_id
  	, i.uuid as indicator_id
  	, s.uuid as survey_id
@@ -1879,7 +1885,7 @@ where f.uuid_indicator_gender=corr_indirect_indicatorresult.uuid_indicator_gende
 insert into external.mig_methods_indicatorresult
 select  uuid_in(md5(random()::text || random()::text)::cstring) as id, current_timestamp as created_at, current_timestamp as updated_at
 , case when i.value_type in ('Gender', 'GenderDecimal') then i.answer_genders else null end as gender_id
-, i.value
+, i.value, false
 , i.created_by_id
 , i.indicator_id
 , i.survey_id
@@ -1913,7 +1919,7 @@ select *
 from external.corr_section q
 )
 insert into external.mig_methods_section
-select f.uuid, current_timestamp, current_timestamp, left(f.ca,60), left(f.ca,60), left(f.ca,60), left(f.gl,60), left(f.eu,60), left(f.es,60), null,
+select f.uuid, current_timestamp, current_timestamp, left(f.ca,60), left(f.ca,60), left(f.ca,60), left(f.gl,60), left(f.eu,60), left(f.es,60), null, null,
 coalesce(f.form_block_index, row_number() over (partition by f.id_module order by f.id_form_block))
 , us.id
 , m.uuid
@@ -1933,7 +1939,7 @@ select *
 from external.corr_section q
 )
 insert into external.mig_methods_section
-select f.uuid, current_timestamp, current_timestamp, left(f.ca,60), left(f.ca,60), left(f.ca,60), left(f.gl,60), left(f.eu,60), left(f.es,60), null
+select f.uuid, current_timestamp, current_timestamp, left(f.ca,60), left(f.ca,60), left(f.ca,60), left(f.gl,60), left(f.eu,60), left(f.es,60), null, null
 ,  coalesce(f.form_block_index, row_number() over (partition by f.id_module order by f.id_form_block))
 , us.id
 , m.uuid
