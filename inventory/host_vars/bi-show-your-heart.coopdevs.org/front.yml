@@ -1,0 +1,19 @@
+
+bi_front_git: https://github.com/Show-your-Heart/ShowYourHeart-data-app.git
+
+REACT_APP_BASE_URL: "https://bi-show-your-heart.coopdevs.org/apidata/"
+VITE_REACT_APP_BASE_URL: "https://bi-show-your-heart.coopdevs.org/apidata/"
+APP_URL: "https://bi-show-your-heart.coopdevs.org"
+
+# Use correct python3 interpeter
+ansible_python_interpreter: "/usr/bin/python3"
+
+pyenv_virtualenvs_name: "{{bi_user}}"
+
+app_user: "{{bi_user}}"
+app_frontend_path: "/opt/bi-frontend"
+
+
+VITE_SUPERSET_USER: ""
+VITE_SUPERSET_PASSWORD: ""
+VITE_SUPERSET_HOST: "{{SUPERSETURL}}"
