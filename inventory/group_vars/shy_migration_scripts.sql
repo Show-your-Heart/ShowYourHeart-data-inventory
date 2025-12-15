@@ -717,10 +717,28 @@ join external.corr_user c on u."ID"=c.id
 -- START SETTINGS_NETWORK ---------
 -----------------------------------
 
+-- drop table if exists external.corr_network;
+-- create table external.corr_network as
+-- select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
+-- from ec.social_agent;
+--
+-- insert into external.mig_settings_network
+-- select c.uuid as id
+-- , current_timestamp as created_at
+-- , current_timestamp as updated_at
+-- , m.name
+-- , us.id as created_by_id
+-- , cu.uuid
+-- , null as parent_network_id
+-- from ec.social_agent m
+-- join external.corr_network c on m."ID"=c.id
+-- join external.corr_user cu on m.id_user=cu.id
+-- , (select id from external.mig_users_user where name='MIGRATION') us;
+
 drop table if exists external.corr_network;
 create table external.corr_network as
 select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
-from ec.social_agent;
+from ec.associations;
 
 insert into external.mig_settings_network
 select c.uuid as id
@@ -728,11 +746,11 @@ select c.uuid as id
 , current_timestamp as updated_at
 , m.name
 , us.id as created_by_id
-, cu.uuid
+, cu.id
 , null as parent_network_id
-from ec.social_agent m
+from ec.associations m
 join external.corr_network c on m."ID"=c.id
-join external.corr_user cu on m.id_user=cu.id
+, (select id from external.mig_users_user where email='supertest@test.com') cu --TODO definir l'administrador
 , (select id from external.mig_users_user where name='MIGRATION') us;
 
 
@@ -1039,7 +1057,7 @@ select q.uuid, current_timestamp, current_timestamp,
 , coalesce(dca, dgl, deu, des, 'ND')
 , dca, dca, dgl, deu, des,null, null
 , true
-, 'SC' as category -- TODO
+, 'SC' as category
 , case "QUESTIONTYPE"
 	when '' then 'S'
 	when 'Boolean' then 'B'
@@ -1053,14 +1071,14 @@ select q.uuid, current_timestamp, current_timestamp,
 	when 'Number' then 'DC'
 	when 'PercentageGroup' then 'DC'
 	when 'Radio' then 'R'
-	when 'Range' then 'R'
+	when 'Range' then 'DC'
 	when 'Sector' then 'DR'
 	when 'SingleText' then 'S'
 	when 'Text' then 'T'
 	else 'S'
 	end
 , case "UNIT"
-	when '' then 'C'
+	when '' then null
 	when 'Boolean' then 'C'
 	when 'DinA4' then 'C'
 	when 'Euro' then 'EH'
@@ -1073,7 +1091,7 @@ select q.uuid, current_timestamp, current_timestamp,
 	when 'Percentage' then 'C'
 	when 'Persones' then 'C'
 	when 'Tones' then 'K'
-	else 'C'
+	else null
 end
 , '' as condition, '' as formula
 , left(coalesce(t."VALIDATION", ''), 50)
@@ -1121,7 +1139,7 @@ select i.uuid, current_timestamp, current_timestamp
 , coalesce(ca, es, gl, eu), ca, ca, gl, eu, es, null, null
 , coalesce(dca, des, dgl, deu), dca, dca, dgl, deu, des, null, null
 , false
-, 'SC' --TODO
+, 'SC'
 , case value_type
 	when '' then 'S'
 	when 'Boolean' then 'B'
@@ -1142,7 +1160,7 @@ select i.uuid, current_timestamp, current_timestamp
 	else 'S'
 	end
 , case "UNIT"
-	when '' then 'C'
+	when '' then null
 	when 'Boolean' then 'C'
 	when 'DinA4' then 'C'
 	when 'Euro' then 'EH'
@@ -1155,7 +1173,7 @@ select i.uuid, current_timestamp, current_timestamp
 	when 'Percentage' then 'C'
 	when 'Persones' then 'C'
 	when 'Tones' then 'K'
-	else 'C'
+	else null
 end
 ,'' as condition
 , t."FORMULA"
@@ -1201,7 +1219,6 @@ where t."FORMULA" is not null;
 ------------------------------
 -- START METHODS_METHOD ------
 ------------------------------
-
 drop table if exists external.corr_method;
 create table external.corr_method as
 select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
@@ -1218,24 +1235,28 @@ with modules as (
 	, jsonb_path_query(q.description::jsonb, '$.texts[*] ? (@.la == "gl").text') #>> '{}' as dgl
 	, jsonb_path_query(q.description::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}' as deu
 	, jsonb_path_query(q.description::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}' as des
+	, (row_number() over (partition by "MODULE_KEY" order by id_campaign))::varchar||'.0.0' as vs
 	from ec.modules q
 )
 insert into external.mig_methods_method
-select c.uuid, current_timestamp, current_timestamp, case when "ACTIVE"=1 then true else false end
+select c.uuid, current_timestamp, current_timestamp
 , ca, ca, ca, gl, eu, es, null, null
 , coalesce(dca,dgl, deu, des,'ND'), dca, dca, dgl, deu, des, null, null
 , coalesce(type, 'ORG') as unit_of_analysis
 , '' as documentation
+, vs
 , us.id
 , coalesce(sn.id, nt.id)
 from modules m
 join external.corr_method c on m."ID" = c.id
 left join ( --TODO revisar join/left join
-	select id_module, min(id_social_agent) as id_social_agent
-	from ec.social_agent_module
+	select id_module, min(a."ID") as id_network
+	from ec.social_agent_module am
+		join ec.social_agent sa on am.id_social_agent = sa."ID"
+		join ec.associations a on a.name=sa."name"
 	group by id_module
 ) sa on sa.id_module=m."ID"
-left join external.corr_network n on sa.id_social_agent=n.id
+left join external.corr_network n on sa.id_network=n.id
 left join external.mig_settings_network sn on n.uuid=sn.id
 left join (
 	select "ID_MODULE", case when max(et."NAME")='Entity' then 'ORG' else 'PRO' end as type
@@ -1244,7 +1265,8 @@ left join (
 	group by "ID_MODULE"
 ) ti on ti."ID_MODULE"=m."ID"
 , (select id from external.mig_users_user where name='MIGRATION') us
-, (select id from external.mig_settings_network where name='Xarxa d''Economia Solidària') nt -- per defecte owner XES
+--TODO 2025-12-12 revisar fk amb network
+   , (select id from external.mig_settings_network where name='Xarxa d''Economia Solidària') nt -- per defecte owner XES
 ;
 
 -- Els fitxers han d'estar pujats al bucket
