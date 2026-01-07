@@ -649,6 +649,7 @@ insert into external.mig_settings_legalstructure
 select c.uuid, current_timestamp, current_timestamp
 , jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'  as ca
 , jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'  as ca
+, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'  as ca
 , jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "gl").text') #>> '{}' as gl
 , jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}' as eu
 , jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}' as es
@@ -785,6 +786,7 @@ select c.uuid as id
 , us.id as created_by_id
 , ls.uuid as legal_structure_id
 , mgc.region3_id as region
+, case when e.bs_allow_public=1 then true else false end
 from ec.entities e
 join external.corr_organization c on e."ID"=c.id
 join external.corr_legalstructure ls on ls.id=e.id_legal_form  --hi ha casos que no hi son
@@ -1120,6 +1122,9 @@ select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as u
 from ec.indicators;
 
 
+-- TODO revisar les campanyes que son iguals (també en versió)
+
+-- Agafar només els de l'ultima campanya (indicadors indirectes)
 with t as (
 	select *
 	, jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'  as ca
@@ -1131,6 +1136,7 @@ with t as (
 		, jsonb_path_query(q.description::jsonb, '$.texts[*] ? (@.la == "eu").text') #>> '{}' as deu
 		, jsonb_path_query(q.description::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}' as des
 	from ec.indicators q
+	where id_campaign = (select max("ID") as id_campaign from ec.campaigns c )
 )
 insert into external.mig_methods_indicator
 select i.uuid, current_timestamp, current_timestamp
@@ -1188,7 +1194,14 @@ from t
 	, (select id from external.mig_users_user where name='MIGRATION') us
 where t."FORMULA" is not null;
 
+-- update validation X pel nom de l'indicador
+update external.mig_methods_indicator set validation = replace(validation, 'X', code )
+where validation is not null
+and length(replace(validation, 'X', code ))<=50;
 
+-- posar a condition el mateix que a validation
+update external.mig_methods_indicator set condition=validation
+where validation is not  null;
 -------------------------------
 -- END METHODS_INDICATOR ------
 -------------------------------
@@ -1219,6 +1232,15 @@ where t."FORMULA" is not null;
 ------------------------------
 -- START METHODS_METHOD ------
 ------------------------------
+
+--TODO Revisar duplicats
+--select *
+--from external.corr_method c
+--where c."uuid" in ('cc50c0fa-febe-c7b9-4177-89d64cefe45c', 'cc1d8db8-7cd6-ff65-a050-5df336207e0b')
+--
+--select jsonb_path_query(m.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}', *
+--from ec.modules m
+--where m."ID" in (1557,1589)
 drop table if exists external.corr_method;
 create table external.corr_method as
 select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
@@ -1310,6 +1332,20 @@ select -row_number() over (order by m.id, l.id), m."uuid" , l."uuid"
 from ec.modules_legalforms ml
 join external.corr_method m on m.id =ml.id_module
 join external.corr_legalstructure l on l.id = ml.id_legalform ;
+
+--Afegir els mòduls de Id parent
+insert into external.mig_methods_method_legal_structures
+select -row_number() over (order by m.id, l.id)
+	- (select count(*)
+		from ec.modules_legalforms ml
+		join external.corr_method m on m.id =ml.id_module
+		join external.corr_legalstructure l on l.id = ml.id_legalform
+	)
+, m."uuid" , l."uuid"
+from ec.modules_legalforms ml
+join ec.legal_forms lf on ml.id_legalform = lf.id_parent
+join external.corr_method m on m.id =ml.id_module
+join external.corr_legalstructure l on l.id = lf."ID"  ;
 --------------------------------------
 -- END METHODS_LEGAL_STRUCTURES ------
 --------------------------------------
