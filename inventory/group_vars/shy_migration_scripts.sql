@@ -361,14 +361,15 @@ join ec.provinces c on q.id_province=c."ID"
 )
 insert into external.mig_geodata_region3
 select  r.uuid, current_timestamp, current_timestamp
-,reg, reg, reg, reg_gl, reg_eu, reg_es, null
+,reg, reg, reg, reg_gl, reg_eu, reg_es, null, null
+, c.id
 , us.id
-, null
 , null
 , mc.id
 from tb
 left join external.mig_geodata_region2 mc on  prov=mc.name
 join external.corr_region3 r on tb."ID"=r.id
+, (select * from external.mig_geodata_country where name='Espanya') c
 , (select id from external.mig_users_user where name='MIGRATION') us;
 
 
@@ -544,6 +545,7 @@ left join external."laposte_hexasmal.csv" h on g."Code Officiel Commune"=h."Code
 insert into external.mig_geodata_region3
 select uuid_in(md5(random()::text || random()::text)::cstring) as uuid, current_timestamp, current_timestamp
 , g."Nom Officiel EPCI", g."Nom Officiel EPCI", g."Nom Officiel EPCI", g."Nom Officiel EPCI", g."Nom Officiel EPCI", g."Nom Officiel EPCI", g."Nom Officiel EPCI", g."Nom Officiel EPCI"
+, c.id
 , us.id, r.id, r2.id
 from fra g
 join external.mig_geodata_region1 r on g."Nom Officiel Région"=r.name
@@ -639,7 +641,6 @@ from t
 -- START SETTINGS_LEGALSTRUCTURE ---------
 ------------------------------------------
 
-
 drop table if exists external.corr_legalstructure;
 create table external.corr_legalstructure as
 select "ID" as id,  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
@@ -655,6 +656,7 @@ select c.uuid, current_timestamp, current_timestamp
 , jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}' as es
 , null
 , null
+, us.id
 , cp.uuid as parent_id
 from ec.legal_forms q
 join external.corr_legalstructure c on q."ID"=c.id
@@ -747,11 +749,10 @@ select c.uuid as id
 , current_timestamp as updated_at
 , m.name
 , us.id as created_by_id
-, cu.id
 , null as parent_network_id
+, null as region3_id
 from ec.associations m
 join external.corr_network c on m."ID"=c.id
-, (select id from external.mig_users_user where email='supertest@test.com') cu --TODO definir l'administrador
 , (select id from external.mig_users_user where name='MIGRATION') us;
 
 
@@ -1194,6 +1195,7 @@ from t
 	, (select id from external.mig_users_user where name='MIGRATION') us
 where t."FORMULA" is not null;
 
+-- TODO mida de la fórmula
 -- update validation X pel nom de l'indicador
 update external.mig_methods_indicator set validation = replace(validation, 'X', code )
 where validation is not null
@@ -1268,7 +1270,7 @@ select c.uuid, current_timestamp, current_timestamp
 , '' as documentation
 , vs
 , us.id
-, coalesce(sn.id, nt.id)
+--, coalesce(sn.id, nt.id)
 from modules m
 join external.corr_method c on m."ID" = c.id
 left join ( --TODO revisar join/left join
@@ -1287,8 +1289,7 @@ left join (
 	group by "ID_MODULE"
 ) ti on ti."ID_MODULE"=m."ID"
 , (select id from external.mig_users_user where name='MIGRATION') us
---TODO 2025-12-12 revisar fk amb network
-   , (select id from external.mig_settings_network where name='Xarxa d''Economia Solidària') nt -- per defecte owner XES
+--   , (select id from external.mig_settings_network where name='Xarxa d''Economia Solidària') nt -- per defecte owner XES
 ;
 
 -- Els fitxers han d'estar pujats al bucket
@@ -1940,6 +1941,7 @@ from fin f
 where f.uuid_indicator_gender=corr_indirect_indicatorresult.uuid_indicator_gender;
 */
 
+-- TODO falten els resultats dels indicadors de les campanyes anteriors per que per simplificar ara agafem només les de l'última campanya
 insert into external.mig_methods_indicatorresult
 select  uuid_in(md5(random()::text || random()::text)::cstring) as id, current_timestamp as created_at, current_timestamp as updated_at
 , case when i.value_type in ('Gender', 'GenderDecimal') then i.answer_genders else null end as gender_id
@@ -1949,7 +1951,12 @@ select  uuid_in(md5(random()::text || random()::text)::cstring) as id, current_t
 , i.survey_id
 from external.corr_indirect_indicatorresult i
 join external.mig_methods_survey ms on i.survey_id=ms.id
-where value is not null;
+where value is not null
+and exists (select *
+from external.mig_methods_indicator ind
+where ind.id=i.indicator_id
+)
+;
 
 
 ------------------------------------------------
@@ -2032,7 +2039,7 @@ select -row_number()over(order by induuid, topuuid), coalesce(form_block_index, 
 , topuuid, induuid
 from t;
 
-
+-- TODO falten els resultats dels indicadors de les campanyes anteriors per que per simplificar ara agafem només les de l'última campanya
 insert into external.mig_methods_section_indicators
 with t as (
 select ci.uuid as induuid, ct.uuid as topuuid, min(fb.form_block_index) as form_block_index, min(fb.id_module) as id_module, min(fb.id_form_block) as id_form_block
@@ -2041,12 +2048,17 @@ join ec.module_form_block fb on q.id_module_form_block = fb.id
 join ec.indicators i on i.id_question=q.id_question
 join external.corr_indicator_indirect ci on i."ID"=ci.id
 join external.corr_section ct on fb.id =ct.id
+where exists (select *
+from external.mig_methods_indicator ind
+where ind.id=ci.uuid
+)
 group by ci.uuid, ct.uuid
 )
 select minid-row_number()over(order by induuid, topuuid), coalesce(form_block_index, row_number() over (partition by id_module order by id_form_block))
 , topuuid, induuid
 from t
-,(select min(id)as minid from external.mig_methods_section_indicators) a;
+,(select min(id)as minid from external.mig_methods_section_indicators) a
+;
 
 
 ---------------------------------------
@@ -2116,6 +2128,35 @@ join external.mig_methods_externalsurveyinvitation e on m.name=e.name and c.uuid
 -- END METHODS_INVITATION ---
 -------------------------------
 
+--------------------------------------------
+-- START SETTINGS_NETWORK_ORGANIZATIONS  ---
+--------------------------------------------
+insert  into external.mig_settings_network_organizations
+select -row_number() over( order by n.uuid), n."uuid" as network_id, co."uuid"  as organization_id
+from ec.membership m
+join external.corr_network n on n.id =m.id_association
+join external.corr_organization co on m.id_entity = co.id
+join external.mig_organizations_organization o on co.uuid=o.id
+
+------------------------------------
+-- END SETTINGS_NETWORK_METHODS  ---
+------------------------------------
+
+with ec as (
+select distinct  id_module,a."ID" as id_network
+	from ec.social_agent_module am
+		join ec.social_agent sa on am.id_social_agent = sa."ID"
+		join ec.associations a on a.name=sa."name"
+)
+insert  into external.mig_settings_network_methods
+select -row_number() over( order by n.uuid), n."uuid" as network_id, cm."uuid"  as method_id
+from ec
+join external.corr_network n on n.id =ec.id_network
+join external.corr_method cm on ec.id_module = cm.id
+
+------------------------------------
+-- END SETTINGS_NETWORK_METHODS  ---
+------------------------------------
 
 --------------------------
 -- START UPDATES FILES ---
