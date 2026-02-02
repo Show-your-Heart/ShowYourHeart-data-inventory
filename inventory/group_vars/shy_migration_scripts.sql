@@ -387,10 +387,13 @@ select jsonb_path_query(q.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '
 , jsonb_path_query(p.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}' as prov
 , jsonb_path_query(p.name::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}' as prov_es
 , jsonb_path_query(r.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}' as region
+, jsonb_path_query(ac.name::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}' as ccaa
+, jsonb_path_query(ac.name::jsonb, '$.texts[*] ? (@.la == "es").text') #>> '{}' as ccaa_es
 , q."ID"
 from ec.towns q
-	left join ec.provinces p on q.id_province=p."ID"
-	left join ec.regions r on q.id_region=r."ID";
+	left join ec.regions r on q.id_region=r."ID"
+	left join ec.provinces p on q.id_province=p."ID" or r.id_province = p."ID"
+	left join ec.autonomous_community ac on p.id_autonomous_community = ac."ID" ;
 
 with tb as (
 select distinct * from external.mig_towns
@@ -400,11 +403,12 @@ select
  c.uuid, current_timestamp, current_timestamp,
 town, town, town, town_gl, town_eu, town_es, null, null
 , us.id
-, co.id, mc.id, mr.id
+, co.id, mccaa.id, mc.id, mr.id
 from tb
 join external.corr_city c on c.id=tb."ID"
 left join external.mig_geodata_region2 mc on  coalesce(prov,prov_es)=mc.name
 left join external.mig_geodata_region3 mr on region=mr.name
+left join external.mig_geodata_region1 mccaa on  coalesce(ccaa,ccaa_es)=mccaa.name
 , (select id from external.mig_geodata_country c where name='Espanya') co
 , (select id from external.mig_users_user where name='MIGRATION') us;
 
@@ -452,7 +456,7 @@ left join external."georef-netherlands-postcode-pc4.csv" c on g."Gemeente code" 
 insert into external.mig_geodata_city
 select uuid_in(md5(random()::text || random()::text)::cstring) as uuid, current_timestamp, current_timestamp
 , g."Gemeente name", g."Gemeente name", g."Gemeente name", g."Gemeente name", g."Gemeente name", g."Gemeente name", g."Gemeente name", g."Gemeente name"
-, us.id, c.id, r.id, null
+, us.id, c.id, null, r.id, null
 from ned g
 join external.mig_geodata_region2 r on g."Provincie name"=r.name
 , (select * from external.mig_geodata_country where name='Netherlands')c
@@ -568,8 +572,9 @@ left join external."laposte_hexasmal.csv" h on g."Code Officiel Commune"=h."Code
 insert into external.mig_geodata_city
 select uuid_in(md5(random()::text || random()::text)::cstring) as uuid, current_timestamp, current_timestamp
 , g."Nom Officiel Commune", g."Nom Officiel Commune", g."Nom Officiel Commune", g."Nom Officiel Commune", g."Nom Officiel Commune", g."Nom Officiel Commune", g."Nom Officiel Commune", g."Nom Officiel Commune"
-, us.id,c.id, r2.id, r3.id
+, us.id,c.id, r1.id ,r2.id, r3.id
 from fra g
+left join external.mig_geodata_region1 r1 on g."Nom Officiel Région"=r1.name
 left join external.mig_geodata_region2 r2 on g."Nom Officiel Département"=r2.name
 left join external.mig_geodata_region3 r3 on g."Nom Officiel EPCI"=r3.name
 , (select * from external.mig_geodata_country where name='France')c
@@ -750,7 +755,6 @@ select c.uuid as id
 , m.name
 , us.id as created_by_id
 , null as parent_network_id
-, null as region3_id
 from ec.associations m
 join external.corr_network c on m."ID"=c.id
 , (select id from external.mig_users_user where name='MIGRATION') us;
@@ -778,16 +782,17 @@ select c.uuid as id
 , null as logo --Update a posteriori. Primer s'ha de pujar el fitxer a s3
 , e."NIF" as vat_number
 , e."WEB"
-, left(coalesce(e."ADDRESS", ' '),100)
+, left(coalesce(e."ADDRESS", ' '),200)
 , case id_bs_state when 1 then 0 when 4 then 1 when 3 then 2 when 2 then 3 end as status
+, null as resolution_date
 , null as privacy_policy_accepted
+, case when e.bs_allow_public=1 then true else false end
 , cy.uuid as town
 --, cu.uuid as contact_id
 , gc.id as country
 , us.id as created_by_id
 , ls.uuid as legal_structure_id
-, mgc.region3_id as region
-, case when e.bs_allow_public=1 then true else false end
+, mgc.region1_id as region
 from ec.entities e
 join external.corr_organization c on e."ID"=c.id
 join external.corr_legalstructure ls on ls.id=e.id_legal_form  --hi ha casos que no hi son
@@ -981,7 +986,7 @@ insert into external.mig_methods_listitem
 select l.uuid, current_timestamp, current_timestamp
 , coalesce(ca,es, eu, gl)
 , ca, ca, gl, eu, es, null, null
-, '' as formula, value, case when active='1' then true else false end as active
+, '' as formula, value
 , us.id
 from t q
 join external.corr_listitem l on q."ID"=l.id
@@ -1097,7 +1102,7 @@ select q.uuid, current_timestamp, current_timestamp,
 	else null
 end
 , '' as condition, '' as formula
-, left(coalesce(t."VALIDATION", ''), 50)
+, coalesce(t."VALIDATION", '')
 , null::jsonb
 , case when t."OPTIONAL"=1 then true else false end
 , coalesce(t.vca, t.ves, t.veu, t.vgl, ''), t.vca, t.vca, t.vgl, t.veu, t.ves, null, null
@@ -1114,6 +1119,7 @@ from t
 	left join external.corr_list cl on li.id_custom_list = cl.id
 	, (select id from external.mig_users_user where name='MIGRATION') us
 where t.rn=1
+and  t."QUESTION_KEY"<>''
 ;
 
 
@@ -1193,13 +1199,13 @@ end
 from t
 	join external.corr_indicator_indirect i on t."ID" = i.id
 	, (select id from external.mig_users_user where name='MIGRATION') us
-where t."FORMULA" is not null;
+where t."FORMULA" is not null
+and t."INDICATOR_KEY"<>'';
 
 -- TODO mida de la fórmula
 -- update validation X pel nom de l'indicador
 update external.mig_methods_indicator set validation = replace(validation, 'X', code )
-where validation is not null
-and length(replace(validation, 'X', code ))<=50;
+where validation is not null;
 
 -- posar a condition el mateix que a validation
 update external.mig_methods_indicator set condition=validation
