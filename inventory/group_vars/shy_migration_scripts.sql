@@ -792,13 +792,14 @@ select c.uuid as id
 , gc.id as country
 , us.id as created_by_id
 , ls.uuid as legal_structure_id
-, mgc.region1_id as region
+, coalesce(ca.uuid, mgc.region1_id) as region
 from ec.entities e
 join external.corr_organization c on e."ID"=c.id
 join external.corr_legalstructure ls on ls.id=e.id_legal_form  --hi ha casos que no hi son
 --join external.corr_user cu on cu.id= e.id_user --hi ha casos que no hi son
 left join external.corr_city cy on e.id_town=cy.id
 left join external.mig_geodata_city mgc on cy.uuid=mgc.id
+left join "external".corr_autonomouscommunity ca on ca.id = e.id_autonomous_community
 , external.mig_geodata_country gc
 , (select id from external.mig_users_user where name='MIGRATION') us
 where gc.name='Espanya'
@@ -2187,3 +2188,41 @@ where a.uuid=mig_methods_method.id;
 ------------------------
 -- END UPDATES FILES ---
 ------------------------
+
+
+
+----------------------------------
+-- START ORGANIZATIONS PROJECT ---
+----------------------------------
+
+
+insert into external.mig_organizations_project
+select  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
+ , current_timestamp, current_timestamp, e."NIF" , p."NAME", left(p."DESCRIPTION" , 400)
+, coalesce(p."REFERENCE_PERSON_NAME",'')
+, coalesce(p."REFERENCE_PERSON_EMAIL",'')
+, coalesce(left(p."REFERENCE_PERSON_TELEPHONE",20), '')
+,jsonb_path_query(as1."NAME"::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'
+,jsonb_path_query(as2."NAME"::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'
+, moo.legal_structure_id as main_legal_entity_type
+, moo.legal_structure_id as secondary_legal_entity_type
+, '19000101'::date
+, '99991231'::date
+, case when e.bs_allow_public =1 then true else false end
+, case when e.bs_allow_public =1 then true else false end as authorize
+, moo.city_id
+, us.id
+, moo.id
+, moo.region1_id
+from ec.project p
+join ec.entities e on p."ID_ENTITY" = e."ID"
+left join ec.action_scope as1 on p."ID_PRIMARY_ACTION_SCOPE" = as1."ID"
+left join ec.action_scope as2 on p."ID_SECONDARY_ACTION_SCOPE1"  = as2."ID"
+join external.corr_organization co on co.id = e."ID"
+join external.mig_organizations_organization moo on co."uuid" = moo.id
+, (select id from external.mig_users_user where name='MIGRATION') us;
+
+
+--------------------------------
+-- END ORGANIZATIONS PROJECT ---
+--------------------------------
