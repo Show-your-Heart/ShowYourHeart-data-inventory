@@ -257,27 +257,27 @@ where exists (
 -- END DELETES -----------
 --------------------------
 
-insert into external.mig_users_user
-select 'migrationMIGRATION' as password
-, null as last_login
-, false as is_superuser
-, uuid_in(md5(random()::text || random()::text)::cstring) as id
-, current_timestamp as created_at
-, current_timestamp as updated_at
-, 'MIGRATION' as name
-, 'MIGRATION' as surname
-, 'MIGRATION'  as email
-, 0 as email_verification_code
-, false as email_verified
-, true as is_active
-, false as is_staff
-, null as created_by_id
-where not exists (
-    select *
-    from external.mig_users_user
-    where name='MIGRATION'
-)
-;
+    insert into external.mig_users_user
+    select 'migrationMIGRATION' as password
+    , null as last_login
+    , false as is_superuser
+    , uuid_in(md5(random()::text || random()::text)::cstring) as id
+    , current_timestamp as created_at
+    , current_timestamp as updated_at
+    , 'MIGRATION' as name
+    , 'MIGRATION' as surname
+    , 'MIGRATION'  as email
+    , 0 as email_verification_code
+    , false as email_verified
+    , true as is_active
+    , false as is_staff
+    , null as created_by_id
+    where not exists (
+        select *
+        from external.mig_users_user
+        where name='MIGRATION'
+    )
+    ;
 
 
 
@@ -753,6 +753,7 @@ select c.uuid as id
 , current_timestamp as created_at
 , current_timestamp as updated_at
 , m.name
+, m.type
 , us.id as created_by_id
 , null as parent_network_id
 from ec.associations m
@@ -779,10 +780,13 @@ select c.uuid as id
 , current_timestamp as created_at
 , current_timestamp as updated_at
 , e.name as name
+, left(coalesce(e.description,''), 400)
 , null as logo --Update a posteriori. Primer s'ha de pujar el fitxer a s3
 , e."NIF" as vat_number
 , e."WEB"
 , left(coalesce(e."ADDRESS", ' '),200)
+, coalesce(e.longitude,'0')
+, coalesce(e.latitude, '0')
 , case id_bs_state when 1 then 0 when 4 then 1 when 3 then 2 when 2 then 3 end as status
 , null as resolution_date
 , null as privacy_policy_accepted
@@ -793,17 +797,20 @@ select c.uuid as id
 , us.id as created_by_id
 , ls.uuid as legal_structure_id
 , coalesce(ca.uuid, mgc.region1_id) as region
+, null as zip_code_id
 from ec.entities e
 join external.corr_organization c on e."ID"=c.id
 join external.corr_legalstructure ls on ls.id=e.id_legal_form  --hi ha casos que no hi son
 --join external.corr_user cu on cu.id= e.id_user --hi ha casos que no hi son
 left join external.corr_city cy on e.id_town=cy.id
 left join external.mig_geodata_city mgc on cy.uuid=mgc.id
-left join "external".corr_autonomouscommunity ca on ca.id = e.id_autonomous_community
+left join "external".corr_region1 ca on ca.id = e.id_autonomous_community
 , external.mig_geodata_country gc
 , (select id from external.mig_users_user where name='MIGRATION') us
 where gc.name='Espanya'
-and e.id_bs_state in (1,2,3,4);
+and e.id_bs_state in (1,2,3,4)
+;
+
 
 
 --suposem que els fitxers estan pujats a s3
@@ -1066,6 +1073,7 @@ select q.uuid, current_timestamp, current_timestamp,
 , coalesce(dca, dgl, deu, des, 'ND')
 , dca, dca, dgl, deu, des,null, null
 , true
+, false as is_group_indicator
 , 'SC' as category
 , case "QUESTIONTYPE"
 	when '' then 'S'
@@ -1088,17 +1096,17 @@ select q.uuid, current_timestamp, current_timestamp,
 	end
 , case "UNIT"
 	when '' then null
-	when 'Boolean' then 'C'
-	when 'DinA4' then 'C'
+	when 'Boolean' then 'N'
+	when 'DinA4' then 'N'
 	when 'Euro' then 'EH'
-	when 'Hores' then 'C'
-	when 'KgAny' then 'C'
+	when 'Hores' then 'N'
+	when 'KgAny' then 'N'
 	when 'Kwh' then 'E'
-	when 'Litres' then 'C'
-	when 'M3' then 'C'
-	when 'Nombre' then 'C'
-	when 'Percentage' then 'C'
-	when 'Persones' then 'C'
+	when 'Litres' then 'N'
+	when 'M3' then 'N'
+	when 'Nombre' then 'N'
+	when 'Percentage' then 'N'
+	when 'Persones' then 'N'
 	when 'Tones' then 'K'
 	else null
 end
@@ -1108,6 +1116,7 @@ end
 , case when t."OPTIONAL"=1 then true else false end
 , coalesce(t.vca, t.ves, t.veu, t.vgl, ''), t.vca, t.vca, t.vgl, t.veu, t.ves, null, null
 ,  us.id
+, null as group_id, null as group_2_id
 , cl.uuid list_options_id
 from t
 	join external.corr_indicator q on t."QUESTION_KEY" = q.key
@@ -1153,6 +1162,7 @@ select i.uuid, current_timestamp, current_timestamp
 , coalesce(ca, es, gl, eu), ca, ca, gl, eu, es, null, null
 , coalesce(dca, des, dgl, deu), dca, dca, dgl, deu, des, null, null
 , false
+, false as is_group_indicator
 , 'SC'
 , case value_type
 	when '' then 'S'
@@ -1175,17 +1185,17 @@ select i.uuid, current_timestamp, current_timestamp
 	end
 , case "UNIT"
 	when '' then null
-	when 'Boolean' then 'C'
-	when 'DinA4' then 'C'
+	when 'Boolean' then 'N'
+	when 'DinA4' then 'N'
 	when 'Euro' then 'EH'
-	when 'Hores' then 'C'
-	when 'KgAny' then 'C'
+	when 'Hores' then 'N'
+	when 'KgAny' then 'N'
 	when 'Kwh' then 'E'
-	when 'Litres' then 'C'
-	when 'M3' then 'C'
-	when 'Nombre' then 'C'
-	when 'Percentage' then 'C'
-	when 'Persones' then 'C'
+	when 'Litres' then 'N'
+	when 'M3' then 'N'
+	when 'Nombre' then 'N'
+	when 'Percentage' then 'N'
+	when 'Persones' then 'N'
 	when 'Tones' then 'K'
 	else null
 end
@@ -1196,6 +1206,7 @@ end
 , false
 , '' as message, null , null , null , null , null, null
 , us.id
+, null as group_id, null as group_2_id
 , null
 from t
 	join external.corr_indicator_indirect i on t."ID" = i.id
@@ -1276,6 +1287,13 @@ select c.uuid, current_timestamp, current_timestamp
 , coalesce(type, 'ORG') as unit_of_analysis
 , '' as documentation
 , vs
+, case id_module_type
+    when 6 then 'PR'
+    when 7 then 'AS'
+    when 8 then 'V'
+    else 'W'
+ end
+as external_survey_category
 , us.id
 --, coalesce(sn.id, nt.id)
 from modules m
@@ -2080,7 +2098,8 @@ from t
 
 drop table if exists external.mig_external_modules_invitations;
 create table external.mig_external_modules_invitations as
-select distinct cm."uuid" as external_survey_id , m."MODULE_KEY" as name, m.id_campaign as campaign_id, c."EMAIL" as email, c."NAME", c."SURNAME", c."HASH" as hash
+select distinct cm."uuid" as external_survey_id , m."MODULE_KEY" as name, m.id_campaign as campaign_id
+, c."EMAIL" as email, c."NAME", c."SURNAME", c."HASH" as hash, c.id_entity
 from ec.questions q
 join ec.answers a on a.id_question = q."ID"
 join ec.module_form_block_question mf on mf.id_question=q."ID"
@@ -2093,12 +2112,14 @@ join external.corr_method cm on cm.id=m."ID" ;
 
 insert into external.mig_methods_externalsurveyinvitation
 with t as (
-select distinct external_survey_id, name, campaign_id, c.uuid as uuid_campaign
+select distinct external_survey_id, name, c.uuid as uuid_campaign, o.uuid as uuid_organization
 from external.mig_external_modules_invitations i
 	join external.corr_campaign c on c.id=i.campaign_id
+	join external.corr_organization o on i.id_entity=o.id
 )
-select uuid_in(md5(random()::text || random()::text)::cstring) as uuid, current_timestamp, current_timestamp, name , uuid_campaign
+select uuid_in(md5(random()::text || random()::text)::cstring) as uuid, current_timestamp, current_timestamp, name
 , us.id
+, uuid_organization
 , external_survey_id
 from t
 , (select id from external.mig_users_user where name='MIGRATION') us;
@@ -2114,22 +2135,25 @@ from t
 -------------------------------
 
 insert into external.mig_methods_invitation
-select  uuid_in(md5(random()::text || random()::text)::cstring) as uuid, current_timestamp, current_timestamp
-, m."NAME"||' '||m."SURNAME" as name
+select  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
+, current_timestamp
+, current_timestamp
+, m."NAME"
+, m."SURNAME"
 , case when cn.cnt>1 then m.hash||'_'||m.email else m.email end
-, 1
+, null as gender
+, 1 as satus
+, null as send_date
 , MD5(random()::text) as token
 , us.id
 , e.id
 from external.mig_external_modules_invitations m
-	join external.corr_campaign c on c.id=m.campaign_id
 	join (select email, count(distinct m.hash) as cnt
 		from external.mig_external_modules_invitations m
 		group by email) cn on m.email=cn.email
-join external.mig_methods_externalsurveyinvitation e on m.name=e.name and c.uuid=e.campaign_id and m.external_survey_id=e.external_survey_id
+join external.mig_methods_externalsurveyinvitation e on m.name=e.name and m.external_survey_id=e.external_survey_id
 , (select id from external.mig_users_user where name='MIGRATION') us
 ;
-
 
 -------------------------------
 -- END METHODS_INVITATION ---
@@ -2195,34 +2219,57 @@ where a.uuid=mig_methods_method.id;
 -- START ORGANIZATIONS PROJECT ---
 ----------------------------------
 
-
 insert into external.mig_organizations_project
-select  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
- , current_timestamp, current_timestamp, e."NIF" , p."NAME", left(p."DESCRIPTION" , 400)
-, coalesce(p."REFERENCE_PERSON_NAME",'')
-, coalesce(p."REFERENCE_PERSON_EMAIL",'')
-, coalesce(left(p."REFERENCE_PERSON_TELEPHONE",20), '')
-,jsonb_path_query(as1."NAME"::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'
-,jsonb_path_query(as2."NAME"::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}'
-, moo.legal_structure_id as main_legal_entity_type
-, moo.legal_structure_id as secondary_legal_entity_type
-, '19000101'::date
-, '99991231'::date
-, case when e.bs_allow_public =1 then true else false end
-, case when e.bs_allow_public =1 then true else false end as authorize
-, moo.city_id
-, us.id
-, moo.id
-, moo.region1_id
-from ec.project p
-join ec.entities e on p."ID_ENTITY" = e."ID"
-left join ec.action_scope as1 on p."ID_PRIMARY_ACTION_SCOPE" = as1."ID"
-left join ec.action_scope as2 on p."ID_SECONDARY_ACTION_SCOPE1"  = as2."ID"
-join external.corr_organization co on co.id = e."ID"
-join external.mig_organizations_organization moo on co."uuid" = moo.id
-, (select id from external.mig_users_user where name='MIGRATION') us;
-
+select
+	"uuid", created_at, updated_at, vat_number, "name", description, contact_name, contact_email, contact_telephone
+	, coalesce(main_action_scope,''), coalesce(secontary_action_scope,''), main_legal_entity_type, secondary_legal_entity_type
+	, start_date, end_date, publish_results, authorize, city_id, created_by_id, organization_id, region1_id
+from (
+	select  uuid_in(md5(random()::text || random()::text)::cstring) as uuid
+	 , current_timestamp as created_at, current_timestamp as updated_at, e."NIF" as vat_number
+	 , p."NAME" as name
+	 , left(p."DESCRIPTION" , 400) as description
+	, coalesce(p."REFERENCE_PERSON_NAME",'') as contact_name
+	, coalesce(p."REFERENCE_PERSON_EMAIL",'') as contact_email
+	, coalesce(left(p."REFERENCE_PERSON_TELEPHONE",20), '') as contact_telephone
+	,jsonb_path_query(as1."NAME"::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}' as main_Action_scope
+	,jsonb_path_query(as2."NAME"::jsonb, '$.texts[*] ? (@.la == "ca").text') #>> '{}' as secontary_Action_scope
+	, moo.legal_structure_id as main_legal_entity_type
+	, moo.legal_structure_id as secondary_legal_entity_type
+	, '19000101'::date as start_Date
+	, '99991231'::date as end_date
+	, case when e.bs_allow_public =1 then true else false end as publish_results
+	, case when e.bs_allow_public =1 then true else false end as authorize
+	, moo.city_id
+	, us.id as created_by_id
+	, moo.id as organization_id
+	, moo.region1_id
+	from ec.project p
+	join ec.entities e on p."ID_ENTITY" = e."ID"
+	left join ec.action_scope as1 on p."ID_PRIMARY_ACTION_SCOPE" = as1."ID"
+	left join ec.action_scope as2 on p."ID_SECONDARY_ACTION_SCOPE1"  = as2."ID"
+	join external.corr_organization co on co.id = e."ID"
+	join external.mig_organizations_organization moo on co."uuid" = moo.id
+	, (select id from external.mig_users_user where name='MIGRATION') us
+) a
+;
 
 --------------------------------
 -- END ORGANIZATIONS PROJECT ---
 --------------------------------
+
+
+------------------------------------
+-- START METHODS METHOD REGION 1 ---
+------------------------------------
+
+insert into external.mig_methods_method_region1
+select -row_number()over(order by mmm.id, mgr.id) , mmm.id, mgr.id
+from external.mig_methods_method mmm
+, external.mig_geodata_region1 mgr
+where mgr.country_id = (select id from external.mig_geodata_country c where name='Espanya')
+
+
+----------------------------------
+-- END METHODS METHOD REGION 1 ---
+----------------------------------
