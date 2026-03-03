@@ -1527,15 +1527,25 @@ select uuid_in(md5(random()::text || random()::text)::cstring) as uuid, *
 from a;
 
 insert into external.mig_methods_survey
-select m.uuid, current_timestamp, current_timestamp, '' as token, 0 as status, cc.uuid
+select m.uuid, current_timestamp, current_timestamp, '' as token
+, case emi."STATE"
+	when 'Opened' then 0
+	when 'Closed' then 1
+	when 'TechnicallyValidated' then 2
+	when 'CriteriaValidated' then 3
+	else 0
+	end
+as status
+, cc.uuid
 , us.id, cm.uuid, co.uuid, null as project_id, cu.uuid
-, null, null, null, null, null
+, emi.closed_date , emi.technical_revision_date , null, emi.start_date, emi.revision_date
 from external.corr_survey m
 join external.corr_method cm on m.id_module=cm.id
 join external.corr_organization co on m.id_entity=co.id
 join external.mig_organizations_organization o on co.uuid=o.id
 join external.corr_user cu on m.id_user=cu.id
 join external.corr_campaign cc on m.id_campaign=cc.id
+left join ec.entity_module_info emi on emi.id_entity = co.id and emi.id_module = cm.id
 , (select id from external.mig_users_user where name='MIGRATION') us
 
 
@@ -2273,3 +2283,153 @@ where mgr.country_id = (select id from external.mig_geodata_country c where name
 ----------------------------------
 -- END METHODS METHOD REGION 1 ---
 ----------------------------------
+
+
+
+-------------------------
+-- START ZIPS ESPANYA ---
+-------------------------
+
+
+CREATE EXTENSION pg_trgm;
+
+drop table external.cp_geodata_city;
+create table external.cp_geodata_city as
+select *
+from external.mig_geodata_city mgc
+where country_id ='71c0487d-0563-5b5a-4a76-05848951ddf2';
+
+
+create index cix_cp_geodata_city on  external.cp_geodata_city(name);
+cluster external.cp_geodata_city using cix_cp_geodata_city;
+
+drop table external.cp_geodata_city_clean;
+create table external.cp_geodata_city_clean as
+select distinct lpad(zipcode::varchar,5,'0') as zipcode, community
+from external.zipcodes_es z;
+
+create index cix_zip1 on  external.cp_geodata_city_clean(community);
+cluster external.cp_geodata_city_clean using cix_zip1;
+
+
+drop table external.aux_zip_code_city;
+create table external.aux_zip_code_city as
+select distinct lpad(zipcode::varchar,5,'0'), community, mgc.name, mgc.id, 'fuzzy' as type
+from external.cp_geodata_city_clean z
+join external.cp_geodata_city mgc on SIMILARITY(z.community,mgc.name) > 0.6 and z.community <>mgc.name
+;
+
+insert into external.aux_zip_code_city
+select distinct lpad(zipcode::varchar,5,'0'), community, mgc.name, mgc.id, 'igual' as type
+from external.cp_geodata_city_clean z
+join external.cp_geodata_city mgc on  z.community =mgc.name
+;
+
+drop table external.cp_geodata_city_places_clean;
+create table external.cp_geodata_city_places_clean as
+select distinct lpad(zipcode::varchar,5,'0') as zipcode, place
+from external.zipcodes_es z;
+
+create index cix_cp_geodata_city_places on  external.cp_geodata_city_places_clean(place);
+cluster external.cp_geodata_city_places_clean using cix_cp_geodata_city_places;
+
+
+insert into external.aux_zip_code_city
+select distinct lpad(zipcode::varchar,5,'0'), place, mgc.name, mgc.id, 'fz plac' as type
+from external.mig_geodata_city mgc
+join external.cp_geodata_city_places_clean z on SIMILARITY(z.place,mgc.name) > 0.6
+where mgc.country_id ='71c0487d-0563-5b5a-4a76-05848951ddf2'
+and not exists (
+	select *
+	from external.aux_zip_code_city z
+	where z.name = mgc.name);
+
+
+
+select *
+from external.mig_geodata_city mgc
+where mgc.country_id ='71c0487d-0563-5b5a-4a76-05848951ddf2'
+and not exists (
+	select *
+	from external.aux_zip_code_city z
+	where z.name = mgc.name);
+
+with zips as (
+select distinct id, lpad as zip
+from external.aux_zip_code_city z
+where type='igual'
+union all
+select distinct id, lpad as zip
+from external.aux_zip_code_city z
+where type='fuzzy'
+and not exists (
+	select *
+	from external.aux_zip_code_city q
+	where q.lpad=z.lpad
+	and type='igual'
+)
+union all
+select distinct id, lpad as zip
+from external.aux_zip_code_city z
+where type='fz plac'
+and not exists (
+	select *
+	from external.aux_zip_code_city q
+	where q.lpad=z.lpad
+	and type='igual'
+)
+and not exists (
+	select *
+	from external.aux_zip_code_city q
+	where q.lpad=z.lpad
+	and type='fuzzy'
+)
+)
+insert into external.mig_geodata_zipcode
+select uuid_in(md5(random()::text || random()::text)::cstring) as uuid, current_timestamp, current_timestamp
+, zip, z.id
+, us.id
+from zips z
+, (select id from external.mig_users_user where name='MIGRATION') us;
+
+
+-----------------------
+-- END ZIPS ESPANYA ---
+-----------------------
+
+--------------------------------------
+-- START UPDATE ORGANIZATIONS ZIPS ---
+--------------------------------------
+
+
+update external.mig_organizations_organization  set zip_code_id = a.id
+from (
+select co."uuid" , z.id
+from ec.entities e
+join  external.mig_geodata_zipcode z on e."CP" = z.code
+join "external".mig_geodata_city mgc on z.city_id = mgc.id
+join external.mig_geodata_country c on mgc.country_id = c.id
+join external.corr_organization co on e."ID" = co.id
+where c.name='Espanya'
+) a
+where a.uuid= mig_organizations_organization.id;
+
+------------------------------------
+-- END UPDATE ORGANIZATIONS ZIPS ---
+------------------------------------
+
+
+------------------------------------------------
+-- START ORGANIZATIONS ORGANIZATION SECTORS  ---
+------------------------------------------------
+
+insert into external.mig_organizations_organization_sectors
+select  -row_number()over(order by co.id, cs.id) ,co."uuid", cs."uuid"
+from ec.entities e
+join "external".corr_organization co on co.id = e."ID"
+join "external".corr_sector cs on cs.id = e.id_sector
+join external.mig_organizations_organization o on co.uuid = o.id
+
+----------------------------------------------
+-- END ORGANIZATIONS ORGANIZATION SECTORS  ---
+----------------------------------------------
